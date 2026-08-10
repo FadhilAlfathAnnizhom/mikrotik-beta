@@ -124,6 +124,7 @@ export interface SimulatorState {
   // --- FIREWALL ENGINE TYPES ---
   firewallRules?: any;
   isNatConfigured?: boolean;
+  isInternetConnected?: boolean; // <-- Tambahan untuk status koneksi internet laptop
   addFirewallNatRule?: (rule: any) => void;
   removeFirewallNatRule?: (id: string) => void;
 
@@ -318,22 +319,30 @@ export const useStore = create<SimulatorState>()(
       // --- FIREWALL INITIAL STATE & ACTIONS ---
       firewallRules: { nat: [], filter: [], mangle: [] },
       isNatConfigured: false,
+      isInternetConnected: false, // <-- Initial state default untuk koneksi internet laptop
       addFirewallNatRule: (rule) => {
         set((state) => ({
           firewallRules: {
             ...state.firewallRules,
             nat: [...(state.firewallRules?.nat || []), rule]
           },
-          isNatConfigured: true
+          isNatConfigured: true,
+          isInternetConnected: true
         }));
       },
       removeFirewallNatRule: (id) => {
-        set((state) => ({
-          firewallRules: {
-            ...state.firewallRules,
-            nat: (state.firewallRules?.nat || []).filter((r: any) => r.id !== id)
-          }
-        }));
+        set((state) => {
+          const remainingNat = (state.firewallRules?.nat || []).filter((r: any) => r.id !== id);
+          const hasNatRules = remainingNat.length > 0;
+          return {
+            firewallRules: {
+              ...state.firewallRules,
+              nat: remainingNat
+            },
+            isNatConfigured: hasNatRules,
+            isInternetConnected: hasNatRules
+          };
+        });
       },
 
       activeDLinkConfigId: null,
@@ -961,6 +970,7 @@ export const useStore = create<SimulatorState>()(
           dhcpLeases: [],
           firewallRules: { nat: [], filter: [], mangle: [] },
           isNatConfigured: false,
+          isInternetConnected: false,
           hasInternet: false,
           activeDesktopLaptopId: null,
           activeLaptopId: null,
@@ -982,6 +992,7 @@ export const useStore = create<SimulatorState>()(
         dhcpServers: state.dhcpServers,
         firewallRules: state.firewallRules,
         isNatConfigured: state.isNatConfigured,
+        isInternetConnected: state.isInternetConnected,
         laptopDesktopStates: state.laptopDesktopStates,
       }),
     }

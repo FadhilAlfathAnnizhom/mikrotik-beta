@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
 import { useStore } from '../store/useStore';
 
-export const WinBoxFirewall: React.FC = () => {
-    const { firewallRules, addFirewallNatRule } = useStore() as any;
+interface WinBoxFirewallProps {
+    onClose?: () => void;
+}
+
+export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
+    const { firewallRules, addFirewallNatRule, removeFirewallNatRule } = useStore() as any;
 
     const [activeTab, setActiveTab] = useState<'filter' | 'nat' | 'mangle'>('nat');
+    const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
     const [modalTab, setModalTab] = useState<'general' | 'action'>('general');
 
@@ -30,18 +35,57 @@ export const WinBoxFirewall: React.FC = () => {
                 firewallRules: {
                     ...state.firewallRules,
                     nat: [...(state.firewallRules?.nat || []), newRule]
-                },
-                isNatConfigured: true
+                }
             }));
         }
 
+        // Aktifkan kembali status NAT & Internet di store
+        useStore.setState({
+            isNatConfigured: true,
+            isInternetConnected: true
+        });
+
         setIsAddModalOpen(false);
+    };
+
+    // Fungsi Hapus Rule NAT (Memutus Internet Jika NAT Kosong)
+    const handleRemoveNatRule = () => {
+        if (!selectedRuleId) return;
+
+        const currentNat = firewallRules?.nat || [];
+        const remainingNat = currentNat.filter((r: any) => r.id !== selectedRuleId);
+        const hasNatRules = remainingNat.length > 0;
+
+        if (removeFirewallNatRule) {
+            removeFirewallNatRule(selectedRuleId);
+        } else {
+            useStore.setState((state: any) => ({
+                firewallRules: {
+                    ...state.firewallRules,
+                    nat: remainingNat
+                }
+            }));
+        }
+
+        // Jika aturan NAT habis/kosong, matikan status koneksi internet di laptop
+        useStore.setState({
+            isNatConfigured: hasNatRules,
+            isInternetConnected: hasNatRules
+        });
+
+        setSelectedRuleId(null);
     };
 
     const natRules = firewallRules?.nat || [];
 
     return (
         <div style={winboxWindowStyle}>
+            {/* Title Bar WinBox */}
+            <div style={winboxTitleBarStyle}>
+                <span>IP -&gt; Firewall</span>
+                <button onClick={onClose} style={winboxCloseBtnStyle}>✕</button>
+            </div>
+
             {/* Top Navigation Tabs */}
             <div style={tabHeaderStyle}>
                 <button
@@ -69,10 +113,17 @@ export const WinBoxFirewall: React.FC = () => {
             {/* Content Area */}
             {activeTab === 'nat' && (
                 <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {/* Toolbar Action Buttons (Ikon WinBox Klasik) */}
+                    {/* Toolbar Action Buttons */}
                     <div style={toolbarStyle}>
-                        <button style={toolBtnStyle} onClick={() => setIsAddModalOpen(true)} title="Add">+</button>
-                        <button style={toolBtnStyle} title="Remove">-</button>
+                        <button style={toolBtnStyle} onClick={() => setIsAddModalOpen(true)} title="Add Rule">+</button>
+                        <button
+                            style={{ ...toolBtnStyle, opacity: selectedRuleId ? 1 : 0.5, cursor: selectedRuleId ? 'pointer' : 'not-allowed' }}
+                            onClick={handleRemoveNatRule}
+                            disabled={!selectedRuleId}
+                            title="Remove Selected Rule"
+                        >
+                            -
+                        </button>
                         <button style={toolBtnStyle} title="Enable">✓</button>
                         <button style={toolBtnStyle} title="Disable">✕</button>
                         <button style={toolBtnStyle}>Reset Counters</button>
@@ -93,20 +144,34 @@ export const WinBoxFirewall: React.FC = () => {
                             <tbody>
                                 {natRules.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} style={{ textAlign: 'center', padding: '12px', color: '#666' }}>
-                                            Belum ada aturan NAT. Klik tombol <b>+</b> untuk membuat aturan Masquerade.
+                                        <td colSpan={5} style={{ textAlign: 'center', padding: '16px', color: '#888' }}>
+                                            Belum ada aturan NAT. Tanpa NAT, laptop tidak akan mendapatkan akses internet.
                                         </td>
                                     </tr>
                                 ) : (
-                                    natRules.map((rule: any, idx: number) => (
-                                        <tr key={rule.id} style={tableBodyRowStyle}>
-                                            <td style={tdStyle}>{idx}</td>
-                                            <td style={{ ...tdStyle, color: '#002266', fontWeight: 'bold' }}>{rule.action}</td>
-                                            <td style={tdStyle}>{rule.chain}</td>
-                                            <td style={tdStyle}>{rule.outInterface || 'all'}</td>
-                                            <td style={tdStyle}>{rule.srcAddress || ''}</td>
-                                        </tr>
-                                    ))
+                                    natRules.map((rule: any, idx: number) => {
+                                        const isSelected = selectedRuleId === rule.id;
+                                        return (
+                                            <tr
+                                                key={rule.id}
+                                                onClick={() => setSelectedRuleId(rule.id)}
+                                                style={{
+                                                    ...tableBodyRowStyle,
+                                                    backgroundColor: isSelected ? '#316ac5' : 'transparent',
+                                                    color: isSelected ? '#ffffff' : '#000000',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                <td style={tdStyle}>{idx}</td>
+                                                <td style={{ ...tdStyle, color: isSelected ? '#ffffff' : '#002266', fontWeight: 'bold' }}>
+                                                    {rule.action}
+                                                </td>
+                                                <td style={tdStyle}>{rule.chain}</td>
+                                                <td style={tdStyle}>{rule.outInterface || 'all'}</td>
+                                                <td style={tdStyle}>{rule.srcAddress || ''}</td>
+                                            </tr>
+                                        );
+                                    })
                                 )}
                             </tbody>
                         </table>
@@ -203,7 +268,7 @@ export const WinBoxFirewall: React.FC = () => {
     );
 };
 
-// Styles Winbox Theme (Auto-Fit 100% untuk Maximize)
+// Styles Winbox Theme
 const winboxWindowStyle: React.CSSProperties = {
     width: '100%',
     height: '100%',
@@ -235,7 +300,8 @@ const winboxCloseBtnStyle: React.CSSProperties = {
     width: '16px',
     height: '14px',
     cursor: 'pointer',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    color: '#000000'
 };
 
 const tabHeaderStyle: React.CSSProperties = {
