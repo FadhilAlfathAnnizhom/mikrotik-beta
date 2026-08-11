@@ -47,6 +47,27 @@ export type RouterData = {
   password: string;
 };
 
+// --- FIREWALL NAT ENGINE TYPES ---
+export interface FirewallNatRule {
+  id: string;
+  chain: 'srcnat' | 'dstnat';
+  action: 'masquerade' | 'src-nat' | 'redirect' | 'dst-nat' | 'accept' | 'drop';
+  outInterface?: string;
+  inInterface?: string;
+  srcAddress?: string;
+  dstAddress?: string;
+  toAddresses?: string;
+  toPorts?: string;
+  comment?: string;
+  disabled: boolean;
+}
+
+export interface FirewallState {
+  nat: FirewallNatRule[];
+  filter: any[];
+  mangle: any[];
+}
+
 export type DesktopWindow = {
   id: string;
   title: string;
@@ -121,16 +142,18 @@ export interface SimulatorState {
   dhcpServers: DhcpServer[];
   dhcpLeases: DhcpLease[];
 
-  // --- FIREWALL ENGINE TYPES ---
-  firewallRules?: any;
-  isNatConfigured?: boolean;
-  isInternetConnected?: boolean; // <-- Tambahan untuk status koneksi internet laptop
-  addFirewallNatRule?: (rule: any) => void;
-  removeFirewallNatRule?: (id: string) => void;
+  // --- FIREWALL ENGINE STATE & ACTIONS ---
+  firewallRules: FirewallState;
+  isNatConfigured: boolean;
+  isInternetConnected: boolean;
+  addFirewallNatRule: (rule: Omit<FirewallNatRule, 'id'>) => void;
+  toggleFirewallNatRule: (id: string) => void;
+  updateFirewallNatRule: (id: string, updates: Partial<FirewallNatRule>) => void;
+  removeFirewallNatRule: (id: string) => void;
 
   // --- ENGINE LAPTOP DESKTOP SIMULATOR ---
   activeDesktopLaptopId: string | null;
-  activeLaptopId?: string | null; // Alias kompatibilitas
+  activeLaptopId?: string | null;
   laptopDesktopStates: Record<string, LaptopDesktopState>;
   mikrotikConfig?: any;
   dlinkConfig?: any;
@@ -223,7 +246,7 @@ export const fetchRealISPConfig = async () => {
     const ipRes = await fetch('https://api4.ipify.org?format=json');
     if (!ipRes.ok) throw new Error('Failed to fetch IPv4');
     const ipData = await ipRes.json();
-    const publicIp = ipData.ip; // Dijamin format IPv4 (e.g., 180.250.x.x atau 36.72.x.x)
+    const publicIp = ipData.ip;
 
     // 2. Ambil Nama ISP
     let ispName = 'Real ISP';
@@ -245,15 +268,12 @@ export const fetchRealISPConfig = async () => {
     let gateway = `${parts[0]}.${parts[1]}.${parts[2]}.1`;
 
     if (firstOctet >= 1 && firstOctet <= 127) {
-      // Kelas A
       prefix = '/8';
       gateway = `${parts[0]}.0.0.1`;
     } else if (firstOctet >= 128 && firstOctet <= 191) {
-      // Kelas B
       prefix = '/16';
       gateway = `${parts[0]}.${parts[1]}.0.1`;
     } else if (firstOctet >= 192 && firstOctet <= 223) {
-      // Kelas C
       prefix = '/24';
       gateway = `${parts[0]}.${parts[1]}.${parts[2]}.1`;
     }
@@ -265,7 +285,6 @@ export const fetchRealISPConfig = async () => {
       ispName: ispName
     };
   } catch (error) {
-    // Fallback default jika offline
     return {
       ip: '192.168.18.50/24',
       gateway: '192.168.18.1',
@@ -273,6 +292,16 @@ export const fetchRealISPConfig = async () => {
       ispName: 'Default ISP'
     };
   }
+};
+
+// Helper internal untuk memverifikasi rule Masquerade/Srcnat aktif
+const checkActiveMasquerade = (natRules: FirewallNatRule[] = []): boolean => {
+  return natRules.some(
+    (rule) =>
+      !rule.disabled &&
+      rule.chain === 'srcnat' &&
+      (rule.action === 'masquerade' || rule.action === 'src-nat')
+  );
 };
 
 const initialMAC = generateMAC();
@@ -319,28 +348,78 @@ export const useStore = create<SimulatorState>()(
       // --- FIREWALL INITIAL STATE & ACTIONS ---
       firewallRules: { nat: [], filter: [], mangle: [] },
       isNatConfigured: false,
-      isInternetConnected: false, // <-- Initial state default untuk koneksi internet laptop
-      addFirewallNatRule: (rule) => {
-        set((state) => ({
-          firewallRules: {
-            ...state.firewallRules,
-            nat: [...(state.firewallRules?.nat || []), rule]
-          },
-          isNatConfigured: true,
-          isInternetConnected: true
-        }));
-      },
-      removeFirewallNatRule: (id) => {
+      isInternetConnected: false,
+
+      addFirewallNatRule: (ruleData) => {
+        const newRule: FirewallNatRule = {
+          ...ruleData,
+          id: `nat-${Date.now()}`,
+          disabled: ruleData.disabled ?? false
+        };
+
         set((state) => {
-          const remainingNat = (state.firewallRules?.nat || []).filter((r: any) => r.id !== id);
-          const hasNatRules = remainingNat.length > 0;
+          const updatedNat = [...(state.firewallRules?.nat || []), newRule];
+          const isNatValid = checkActiveMasquerade(updatedNat);
+
           return {
             firewallRules: {
               ...state.firewallRules,
-              nat: remainingNat
+              nat: updatedNat
             },
-            isNatConfigured: hasNatRules,
-            isInternetConnected: hasNatRules
+            isNatConfigured: isNatValid,
+            isInternetConnected: isNatValid && state.hasInternet
+          };
+        });
+      },
+
+      toggleFirewallNatRule: (id) => {
+        set((state) => {
+          const updatedNat = (state.firewallRules?.nat || []).map((rule) =>
+            rule.id === id ? { ...rule, disabled: !rule.disabled } : rule
+          );
+          const isNatValid = checkActiveMasquerade(updatedNat);
+
+          return {
+            firewallRules: {
+              ...state.firewallRules,
+              nat: updatedNat
+            },
+            isNatConfigured: isNatValid,
+            isInternetConnected: isNatValid && state.hasInternet
+          };
+        });
+      },
+
+      updateFirewallNatRule: (id, updates) => {
+        set((state) => {
+          const updatedNat = (state.firewallRules?.nat || []).map((rule) =>
+            rule.id === id ? { ...rule, ...updates } : rule
+          );
+          const isNatValid = checkActiveMasquerade(updatedNat);
+
+          return {
+            firewallRules: {
+              ...state.firewallRules,
+              nat: updatedNat
+            },
+            isNatConfigured: isNatValid,
+            isInternetConnected: isNatValid && state.hasInternet
+          };
+        });
+      },
+
+      removeFirewallNatRule: (id) => {
+        set((state) => {
+          const updatedNat = (state.firewallRules?.nat || []).filter((r) => r.id !== id);
+          const isNatValid = checkActiveMasquerade(updatedNat);
+
+          return {
+            firewallRules: {
+              ...state.firewallRules,
+              nat: updatedNat
+            },
+            isNatConfigured: isNatValid,
+            isInternetConnected: isNatValid && state.hasInternet
           };
         });
       },
@@ -455,7 +534,7 @@ export const useStore = create<SimulatorState>()(
         if (isValid) {
           try {
             const realISP = await fetchRealISPConfig();
-            const cleanIp = realISP.ip.split('/')[0]; // Mengambil IPv4 murni (tanpa subnet mask /24)
+            const cleanIp = realISP.ip.split('/')[0];
 
             const updatedRouterData = {
               ...routerData,
@@ -623,15 +702,15 @@ export const useStore = create<SimulatorState>()(
 
         if (targetIface.isLinkUp && !targetIface.disabled) {
           (async () => {
-            // Simulasi animasi searching selama 1.2 detik
             await new Promise((resolve) => setTimeout(resolve, 1200));
 
-            // Ambil data ISP Asli Pengguna
             const realISP = await fetchRealISPConfig();
 
             const currentClients = get().dhcpClients;
             const targetClient = currentClients.find(d => d.id === clientId);
             if (!targetClient || targetClient.disabled) return;
+
+            const isNatValid = checkActiveMasquerade(get().firewallRules?.nat || []);
 
             set({
               dhcpClients: get().dhcpClients.map(d => d.id === clientId ? {
@@ -642,10 +721,10 @@ export const useStore = create<SimulatorState>()(
                 dns: realISP.dns,
                 expiresAfter: '09:59:58'
               } : d),
-              hasInternet: true
+              hasInternet: true,
+              isInternetConnected: isNatValid
             });
 
-            // Tambahkan IP dinamis hasil DHCP Client ke daftar IP Address Router
             get().addIPAddress({
               address: realISP.ip,
               interfaceName,
@@ -831,13 +910,13 @@ export const useStore = create<SimulatorState>()(
 
           return {
             activeDesktopLaptopId: id,
-            activeLaptopId: id, // Sinkronisasi alias
+            activeLaptopId: id,
             laptopDesktopStates: {
               ...currentStates,
               [id]: {
                 ...existingState,
                 isOpen: true,
-                activeWindow: null, // Reset jendela yang terbuka agar langsung tampil desktop bersih
+                activeWindow: null,
                 startMenuOpen: false
               }
             }

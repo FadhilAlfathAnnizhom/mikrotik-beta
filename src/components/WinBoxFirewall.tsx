@@ -11,21 +11,35 @@ export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
     const [activeTab, setActiveTab] = useState<'filter' | 'nat' | 'mangle'>('nat');
     const [selectedRuleId, setSelectedRuleId] = useState<string | null>(null);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
-    const [modalTab, setModalTab] = useState<'general' | 'action'>('general');
 
-    // Form State untuk NAT Rule Baru
+    // Tab State dalam Modal
+    const [modalTab, setModalTab] = useState<'general' | 'advanced' | 'extra' | 'action' | 'statistics'>('general');
+
+    // Form State NAT Rule
     const [chain, setChain] = useState<'srcnat' | 'dstnat'>('srcnat');
+    const [srcAddress, setSrcAddress] = useState<string>('');
+    const [dstAddress, setDstAddress] = useState<string>('');
+    const [inInterface, setInInterface] = useState<string>('');
     const [outInterface, setOutInterface] = useState<string>('ether1');
     const [action, setAction] = useState<string>('masquerade');
+    const [toAddresses, setToAddresses] = useState<string>('200.210.220.2');
+    const [toPorts, setToPorts] = useState<string>('');
+    const [comment, setComment] = useState<string>('');
+    const [isRuleDisabled, setIsRuleDisabled] = useState<boolean>(false);
 
     const handleSaveNatRule = () => {
         const newRule = {
             id: `nat-${Date.now()}`,
             chain,
+            srcAddress,
+            dstAddress,
+            inInterface,
             outInterface,
             action,
-            disabled: false,
-            comment: 'masquerade'
+            toAddresses: (action === 'src-nat' || action === 'dst-nat') ? toAddresses : undefined,
+            toPorts: (action === 'redirect' || action === 'dst-nat') ? toPorts : undefined,
+            disabled: isRuleDisabled,
+            comment: comment || action
         };
 
         if (addFirewallNatRule) {
@@ -39,16 +53,16 @@ export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
             }));
         }
 
-        // Aktifkan kembali status NAT & Internet di store
-        useStore.setState({
-            isNatConfigured: true,
-            isInternetConnected: true
-        });
+        if (action === 'masquerade' || action === 'src-nat') {
+            useStore.setState({
+                isNatConfigured: true,
+                isInternetConnected: true
+            });
+        }
 
         setIsAddModalOpen(false);
     };
 
-    // Fungsi Hapus Rule NAT (Memutus Internet Jika NAT Kosong)
     const handleRemoveNatRule = () => {
         if (!selectedRuleId) return;
 
@@ -67,7 +81,6 @@ export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
             }));
         }
 
-        // Jika aturan NAT habis/kosong, matikan status koneksi internet di laptop
         useStore.setState({
             isNatConfigured: hasNatRules,
             isInternetConnected: hasNatRules
@@ -79,73 +92,84 @@ export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
     const natRules = firewallRules?.nat || [];
 
     return (
-        <div style={winboxWindowStyle}>
-            {/* Title Bar WinBox */}
-            <div style={winboxTitleBarStyle}>
+        <div style={windowContainerStyle}>
+            {/* Title Bar - Gradient Blue sesuai screenshot */}
+            <div style={titleBarStyle}>
                 <span>IP -&gt; Firewall</span>
-                <button onClick={onClose} style={winboxCloseBtnStyle}>✕</button>
+                <button onClick={onClose} style={closeBtnStyle}>✕</button>
             </div>
 
-            {/* Top Navigation Tabs */}
-            <div style={tabHeaderStyle}>
+            {/* Main Tabs Navigation */}
+            <div style={tabHeaderContainerStyle}>
                 <button
-                    style={activeTab === 'filter' ? activeTabStyle : tabStyle}
+                    style={activeTab === 'filter' ? activeTabStyle : inactiveTabStyle}
                     onClick={() => setActiveTab('filter')}
                 >
                     Filter Rules
                 </button>
                 <button
-                    style={activeTab === 'nat' ? activeTabStyle : tabStyle}
+                    style={activeTab === 'nat' ? activeTabStyle : inactiveTabStyle}
                     onClick={() => setActiveTab('nat')}
                 >
                     NAT
                 </button>
                 <button
-                    style={activeTab === 'mangle' ? activeTabStyle : tabStyle}
+                    style={activeTab === 'mangle' ? activeTabStyle : inactiveTabStyle}
                     onClick={() => setActiveTab('mangle')}
                 >
                     Mangle
                 </button>
-                <button style={tabStyle}>Raw</button>
-                <button style={tabStyle}>Service Ports</button>
+                <button style={inactiveTabStyle}>Raw</button>
+                <button style={inactiveTabStyle}>Service Ports</button>
             </div>
 
             {/* Content Area */}
             {activeTab === 'nat' && (
-                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-                    {/* Toolbar Action Buttons */}
+                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', padding: '4px' }}>
+                    {/* Toolbar sesuai gaya screenshot 2 */}
                     <div style={toolbarStyle}>
-                        <button style={toolBtnStyle} onClick={() => setIsAddModalOpen(true)} title="Add Rule">+</button>
+                        <button style={toolBtnStyle} onClick={() => setIsAddModalOpen(true)} title="Add Rule">
+                            +
+                        </button>
                         <button
-                            style={{ ...toolBtnStyle, opacity: selectedRuleId ? 1 : 0.5, cursor: selectedRuleId ? 'pointer' : 'not-allowed' }}
+                            style={{
+                                ...toolBtnStyle,
+                                opacity: selectedRuleId ? 1 : 0.4,
+                                cursor: selectedRuleId ? 'pointer' : 'not-allowed'
+                            }}
                             onClick={handleRemoveNatRule}
                             disabled={!selectedRuleId}
                             title="Remove Selected Rule"
                         >
                             -
                         </button>
-                        <button style={toolBtnStyle} title="Enable">✓</button>
-                        <button style={toolBtnStyle} title="Disable">✕</button>
-                        <button style={toolBtnStyle}>Reset Counters</button>
+                        <button style={toolBtnWithTextStyle}>
+                            <span style={{ color: '#16a34a', fontWeight: 'bold' }}>✓</span> Enable
+                        </button>
+                        <button style={toolBtnWithTextStyle}>
+                            <span style={{ color: '#dc2626', fontWeight: 'bold' }}>✕</span> Disable
+                        </button>
                     </div>
 
-                    {/* NAT Table */}
-                    <div style={tableContainerStyle}>
+                    {/* Tabel Rules */}
+                    <div style={tableWrapperStyle}>
                         <table style={tableStyle}>
                             <thead>
                                 <tr style={tableHeaderRowStyle}>
                                     <th style={thStyle}>#</th>
                                     <th style={thStyle}>Action</th>
                                     <th style={thStyle}>Chain</th>
-                                    <th style={thStyle}>Out. Interface</th>
                                     <th style={thStyle}>Src. Address</th>
+                                    <th style={thStyle}>Dst. Address</th>
+                                    <th style={thStyle}>Out. Interface</th>
+                                    <th style={thStyle}>To Addresses</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {natRules.length === 0 ? (
                                     <tr>
-                                        <td colSpan={5} style={{ textAlign: 'center', padding: '16px', color: '#888' }}>
-                                            Belum ada aturan NAT. Tanpa NAT, laptop tidak akan mendapatkan akses internet.
+                                        <td colSpan={7} style={{ textAlign: 'center', padding: '20px', color: '#94a3b8' }}>
+                                            0 items
                                         </td>
                                     </tr>
                                 ) : (
@@ -156,19 +180,19 @@ export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
                                                 key={rule.id}
                                                 onClick={() => setSelectedRuleId(rule.id)}
                                                 style={{
-                                                    ...tableBodyRowStyle,
-                                                    backgroundColor: isSelected ? '#316ac5' : 'transparent',
-                                                    color: isSelected ? '#ffffff' : '#000000',
-                                                    cursor: 'pointer'
+                                                    backgroundColor: isSelected ? '#2563eb' : 'transparent',
+                                                    color: isSelected ? '#ffffff' : '#1e293b',
+                                                    cursor: 'pointer',
+                                                    borderBottom: '1px solid #f1f5f9'
                                                 }}
                                             >
                                                 <td style={tdStyle}>{idx}</td>
-                                                <td style={{ ...tdStyle, color: isSelected ? '#ffffff' : '#002266', fontWeight: 'bold' }}>
-                                                    {rule.action}
-                                                </td>
+                                                <td style={{ ...tdStyle, fontWeight: 'bold' }}>{rule.action}</td>
                                                 <td style={tdStyle}>{rule.chain}</td>
-                                                <td style={tdStyle}>{rule.outInterface || 'all'}</td>
                                                 <td style={tdStyle}>{rule.srcAddress || ''}</td>
+                                                <td style={tdStyle}>{rule.dstAddress || ''}</td>
+                                                <td style={tdStyle}>{rule.outInterface || 'all'}</td>
+                                                <td style={tdStyle}>{rule.toAddresses || ''}</td>
                                             </tr>
                                         );
                                     })
@@ -179,57 +203,80 @@ export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
                 </div>
             )}
 
-            {/* Modal Dialog NAT Rule <> */}
+            {/* Modal Dialog Klasi - NAT Rule */}
             {isAddModalOpen && (
                 <div style={modalOverlayStyle}>
-                    <div style={dialogStyle}>
-                        <div style={winboxTitleBarStyle}>
-                            <span>NAT Rule &lt;&gt;</span>
-                            <button onClick={() => setIsAddModalOpen(false)} style={winboxCloseBtnStyle}>✕</button>
+                    <div style={modalDialogStyle}>
+                        {/* Modal Title Bar */}
+                        <div style={titleBarStyle}>
+                            <span>NAT Rule</span>
+                            <button onClick={() => setIsAddModalOpen(false)} style={closeBtnStyle}>✕</button>
                         </div>
 
-                        {/* Sub-tabs Dialog */}
-                        <div style={{ display: 'flex', borderBottom: '1px solid #808080', backgroundColor: '#d4d0c8', paddingLeft: '4px' }}>
-                            <button
-                                style={modalTab === 'general' ? activeModalTabStyle : modalTabStyle}
-                                onClick={() => setModalTab('general')}
-                            >
-                                General
-                            </button>
-                            <button style={modalTabStyle}>Advanced</button>
-                            <button style={modalTabStyle}>Extra</button>
-                            <button
-                                style={modalTab === 'action' ? activeModalTabStyle : modalTabStyle}
-                                onClick={() => setModalTab('action')}
-                            >
-                                Action
-                            </button>
+                        {/* Modal Subtabs */}
+                        <div style={tabHeaderContainerStyle}>
+                            {(['general', 'advanced', 'extra', 'action', 'statistics'] as const).map((tab) => (
+                                <button
+                                    key={tab}
+                                    style={modalTab === tab ? activeTabStyle : inactiveTabStyle}
+                                    onClick={() => setModalTab(tab)}
+                                >
+                                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                </button>
+                            ))}
                         </div>
 
-                        <div style={{ display: 'flex', padding: '10px', gap: '12px', background: '#f0f0f0' }}>
-                            {/* Tab Content */}
-                            <div style={{ flex: 1 }}>
+                        {/* Modal Content Body */}
+                        <div style={{ display: 'flex', padding: '10px', gap: '10px', backgroundColor: '#f8fafc' }}>
+                            {/* Form Input Area */}
+                            <div style={formPanelStyle}>
                                 {modalTab === 'general' && (
                                     <div style={formGridStyle}>
                                         <label style={labelStyle}>Chain:</label>
                                         <select
                                             value={chain}
                                             onChange={(e: any) => setChain(e.target.value)}
-                                            style={selectStyle}
+                                            style={selectInputStyle}
                                         >
                                             <option value="srcnat">srcnat</option>
                                             <option value="dstnat">dstnat</option>
                                         </select>
 
                                         <label style={labelStyle}>Src. Address:</label>
-                                        <input type="text" placeholder="" style={inputStyle} disabled />
+                                        <input
+                                            type="text"
+                                            value={srcAddress}
+                                            onChange={(e) => setSrcAddress(e.target.value)}
+                                            style={textInputStyle}
+                                        />
 
-                                        <label style={labelStyle}>Out. Interface:</label>
+                                        <label style={labelStyle}>Dst. Address:</label>
+                                        <input
+                                            type="text"
+                                            value={dstAddress}
+                                            onChange={(e) => setDstAddress(e.target.value)}
+                                            style={textInputStyle}
+                                        />
+
+                                        <label style={labelStyle}>In. Interface:</label>
+                                        <select
+                                            value={inInterface}
+                                            onChange={(e: any) => setInInterface(e.target.value)}
+                                            style={selectInputStyle}
+                                        >
+                                            <option value="">(all)</option>
+                                            <option value="ether1">ether1</option>
+                                            <option value="ether2">ether2</option>
+                                            <option value="wlan1">wlan1</option>
+                                        </select>
+
+                                        <label style={{ ...labelStyle, color: '#2563eb', fontWeight: 'bold' }}>Out. Interface:</label>
                                         <select
                                             value={outInterface}
                                             onChange={(e: any) => setOutInterface(e.target.value)}
-                                            style={selectStyle}
+                                            style={selectInputStyle}
                                         >
+                                            <option value="">(all)</option>
                                             <option value="ether1">ether1</option>
                                             <option value="ether2">ether2</option>
                                             <option value="wlan1">wlan1</option>
@@ -239,26 +286,85 @@ export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
 
                                 {modalTab === 'action' && (
                                     <div style={formGridStyle}>
-                                        <label style={labelStyle}>Action:</label>
+                                        <label style={{ ...labelStyle, color: '#2563eb', fontWeight: 'bold' }}>Action:</label>
                                         <select
                                             value={action}
                                             onChange={(e: any) => setAction(e.target.value)}
-                                            style={{ ...selectStyle, backgroundColor: '#002266', color: '#ffffff', fontWeight: 'bold' }}
+                                            style={selectInputStyle}
                                         >
                                             <option value="masquerade">masquerade</option>
+                                            <option value="src-nat">src-nat</option>
+                                            <option value="dst-nat">dst-nat</option>
+                                            <option value="redirect">redirect</option>
                                             <option value="accept">accept</option>
                                             <option value="drop">drop</option>
-                                            <option value="redirect">redirect</option>
                                         </select>
+
+                                        {(action === 'src-nat' || action === 'dst-nat') && (
+                                            <>
+                                                <label style={{ ...labelStyle, color: '#2563eb', fontWeight: 'bold' }}>To Addresses:</label>
+                                                <input
+                                                    type="text"
+                                                    value={toAddresses}
+                                                    onChange={(e) => setToAddresses(e.target.value)}
+                                                    placeholder="200.210.220.2"
+                                                    style={textInputStyle}
+                                                />
+                                            </>
+                                        )}
+
+                                        {(action === 'redirect' || action === 'dst-nat') && (
+                                            <>
+                                                <label style={labelStyle}>To Ports:</label>
+                                                <input
+                                                    type="text"
+                                                    value={toPorts}
+                                                    onChange={(e) => setToPorts(e.target.value)}
+                                                    style={textInputStyle}
+                                                />
+                                            </>
+                                        )}
+                                    </div>
+                                )}
+
+                                {modalTab === 'advanced' && (
+                                    <div style={{ color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', paddingTop: '20px' }}>
+                                        Advanced options...
+                                    </div>
+                                )}
+                                {modalTab === 'extra' && (
+                                    <div style={{ color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', paddingTop: '20px' }}>
+                                        Extra options...
+                                    </div>
+                                )}
+                                {modalTab === 'statistics' && (
+                                    <div style={{ color: '#94a3b8', fontStyle: 'italic', textAlign: 'center', paddingTop: '20px' }}>
+                                        Statistics counters...
                                     </div>
                                 )}
                             </div>
 
-                            {/* Sidebar Command Buttons */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '70px' }}>
-                                <button style={winboxCmdBtnStyle} onClick={handleSaveNatRule}>OK</button>
-                                <button style={winboxCmdBtnStyle} onClick={() => setIsAddModalOpen(false)}>Cancel</button>
-                                <button style={winboxCmdBtnStyle} onClick={handleSaveNatRule}>Apply</button>
+                            {/* Sidebar Action Buttons (Sebelah Kanan Modal) */}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: '90px' }}>
+                                <button style={actionButtonStyle} onClick={handleSaveNatRule}>OK</button>
+                                <button style={actionButtonStyle} onClick={() => setIsAddModalOpen(false)}>Cancel</button>
+                                <button style={actionButtonStyle} onClick={handleSaveNatRule}>Apply</button>
+                                <button style={actionButtonStyle} onClick={() => setIsRuleDisabled(!isRuleDisabled)}>
+                                    {isRuleDisabled ? 'Enable' : 'Disable'}
+                                </button>
+                                <button
+                                    style={actionButtonStyle}
+                                    onClick={() => {
+                                        const c = prompt('Comment:', comment);
+                                        if (c !== null) setComment(c);
+                                    }}
+                                >
+                                    Comment
+                                </button>
+                                <button style={actionButtonStyle}>Copy</button>
+                                <button style={actionButtonStyle}>Remove</button>
+                                <button style={actionButtonStyle}>Reset Counters</button>
+                                <button style={actionButtonStyle}>Reset All Counters</button>
                             </div>
                         </div>
                     </div>
@@ -268,91 +374,120 @@ export const WinBoxFirewall: React.FC<WinBoxFirewallProps> = ({ onClose }) => {
     );
 };
 
-// Styles Winbox Theme
-const winboxWindowStyle: React.CSSProperties = {
+// Styling Object yang Mengikuti Screenshot 2
+const windowContainerStyle: React.CSSProperties = {
     width: '100%',
     height: '100%',
-    backgroundColor: '#f0f0f0',
-    fontFamily: 'Tahoma, Segoe UI, sans-serif',
+    backgroundColor: '#f8fafc',
+    fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
     fontSize: '11px',
     display: 'flex',
     flexDirection: 'column',
-    position: 'relative',
-    overflow: 'hidden'
+    border: '1px solid #203a60',
+    boxSizing: 'border-box',
+    overflow: 'hidden',
+    userSelect: 'none'
 };
 
-const winboxTitleBarStyle: React.CSSProperties = {
-    backgroundColor: '#0a246a',
+const titleBarStyle: React.CSSProperties = {
+    background: 'linear-gradient(90deg, #1b3864 0%, #3b6098 100%)',
     color: '#ffffff',
     padding: '3px 6px',
-    fontWeight: 'bold',
+    fontWeight: '600',
+    fontSize: '11px',
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center'
 };
 
-const winboxCloseBtnStyle: React.CSSProperties = {
-    background: '#d4d0c8',
-    border: '1px solid #ffffff',
-    borderBottomColor: '#808080',
-    borderRightColor: '#808080',
+const closeBtnStyle: React.CSSProperties = {
+    backgroundColor: '#e2e8f0',
+    border: '1px solid #64748b',
+    borderRadius: '2px',
     fontSize: '9px',
-    width: '16px',
-    height: '14px',
+    width: '15px',
+    height: '15px',
+    lineHeight: '13px',
+    textAlign: 'center',
     cursor: 'pointer',
     fontWeight: 'bold',
-    color: '#000000'
+    color: '#0f172a',
+    padding: 0
 };
 
-const tabHeaderStyle: React.CSSProperties = {
+const tabHeaderContainerStyle: React.CSSProperties = {
     display: 'flex',
-    backgroundColor: '#f0f0f0',
-    borderBottom: '1px solid #808080',
+    backgroundColor: '#e2e8f0',
+    borderBottom: '1px solid #cbd5e1',
     paddingTop: '3px',
-    paddingLeft: '4px'
+    paddingLeft: '4px',
+    gap: '2px'
 };
 
-const tabStyle: React.CSSProperties = {
-    padding: '3px 8px',
+const inactiveTabStyle: React.CSSProperties = {
+    padding: '3px 10px',
     fontSize: '11px',
-    border: '1px solid #808080',
+    border: '1px solid #cbd5e1',
     borderBottom: 'none',
-    backgroundColor: '#e0e0e0',
-    cursor: 'pointer',
-    marginRight: '2px'
+    borderRadius: '3px 3px 0 0',
+    backgroundColor: '#cbd5e1',
+    color: '#475569',
+    cursor: 'pointer'
 };
 
 const activeTabStyle: React.CSSProperties = {
-    ...tabStyle,
+    ...inactiveTabStyle,
     backgroundColor: '#ffffff',
+    color: '#1e3a8a',
     fontWeight: 'bold',
-    borderBottom: '1px solid #ffffff'
+    borderBottom: '1px solid #ffffff',
+    position: 'relative',
+    top: '1px'
 };
 
 const toolbarStyle: React.CSSProperties = {
     padding: '3px 4px',
-    backgroundColor: '#f0f0f0',
-    borderBottom: '1px solid #808080',
+    backgroundColor: '#ffffff',
+    border: '1px solid #cbd5e1',
+    borderRadius: '3px',
+    marginBottom: '4px',
     display: 'flex',
-    gap: '3px'
+    alignItems: 'center',
+    gap: '4px'
 };
 
 const toolBtnStyle: React.CSSProperties = {
-    padding: '2px 8px',
-    fontSize: '11px',
-    backgroundColor: '#f0f0f0',
-    border: '1px solid #ffffff',
-    borderBottomColor: '#808080',
-    borderRightColor: '#808080',
+    padding: '1px 8px',
+    fontSize: '12px',
+    fontWeight: 'bold',
+    backgroundColor: '#ffffff',
+    border: '1px solid #cbd5e1',
+    borderRadius: '2px',
     cursor: 'pointer',
-    fontWeight: 'bold'
+    color: '#334155',
+    boxShadow: '0 1px 1px rgba(0,0,0,0.05)'
 };
 
-const tableContainerStyle: React.CSSProperties = {
+const toolBtnWithTextStyle: React.CSSProperties = {
+    padding: '1px 8px',
+    fontSize: '11px',
+    backgroundColor: '#ffffff',
+    border: '1px solid #cbd5e1',
+    borderRadius: '2px',
+    cursor: 'pointer',
+    color: '#334155',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '4px',
+    boxShadow: '0 1px 1px rgba(0,0,0,0.05)'
+};
+
+const tableWrapperStyle: React.CSSProperties = {
     flex: 1,
     backgroundColor: '#ffffff',
-    overflowY: 'auto',
-    border: '1px solid #7f9db9'
+    border: '1px solid #cbd5e1',
+    borderRadius: '2px',
+    overflowY: 'auto'
 };
 
 const tableStyle: React.CSSProperties = {
@@ -362,26 +497,23 @@ const tableStyle: React.CSSProperties = {
 };
 
 const tableHeaderRowStyle: React.CSSProperties = {
-    backgroundColor: '#e0e0e0',
-    borderBottom: '1px solid #a0a0a0'
+    backgroundColor: '#f1f5f9',
+    borderBottom: '1px solid #cbd5e1',
+    color: '#475569'
 };
 
 const thStyle: React.CSSProperties = {
-    padding: '3px 6px',
+    padding: '4px 6px',
     textAlign: 'left',
+    fontWeight: '600',
     fontSize: '11px',
-    fontWeight: 'normal',
-    borderRight: '1px solid #a0a0a0'
-};
-
-const tableBodyRowStyle: React.CSSProperties = {
-    borderBottom: '1px solid #f0f0f0'
+    borderRight: '1px solid #e2e8f0'
 };
 
 const tdStyle: React.CSSProperties = {
     padding: '3px 6px',
     fontSize: '11px',
-    borderRight: '1px dotted #ccc'
+    borderRight: '1px solid #f1f5f9'
 };
 
 const modalOverlayStyle: React.CSSProperties = {
@@ -390,68 +522,75 @@ const modalOverlayStyle: React.CSSProperties = {
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    backgroundColor: 'rgba(0, 0, 0, 0.25)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 1000
 };
 
-const dialogStyle: React.CSSProperties = {
-    width: '380px',
-    backgroundColor: '#f0f0f0',
-    border: '2px solid #ffffff',
-    borderBottomColor: '#666666',
-    borderRightColor: '#666666',
-    boxShadow: '2px 2px 5px rgba(0,0,0,0.5)'
-};
-
-const modalTabStyle: React.CSSProperties = {
-    padding: '4px 8px',
-    fontSize: '11px',
-    border: 'none',
-    background: 'transparent',
-    cursor: 'pointer'
-};
-
-const activeModalTabStyle: React.CSSProperties = {
-    ...modalTabStyle,
+const modalDialogStyle: React.CSSProperties = {
+    width: '460px',
     backgroundColor: '#ffffff',
-    fontWeight: 'bold'
+    border: '1px solid #1e3a8a',
+    borderRadius: '4px',
+    boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+    overflow: 'hidden'
+};
+
+const formPanelStyle: React.CSSProperties = {
+    flex: 1,
+    border: '1px solid #cbd5e1',
+    borderRadius: '2px',
+    backgroundColor: '#ffffff',
+    padding: '10px',
+    minHeight: '200px'
 };
 
 const formGridStyle: React.CSSProperties = {
     display: 'grid',
-    gridTemplateColumns: '90px 1fr',
+    gridTemplateColumns: '95px 1fr',
     gap: '6px',
     alignItems: 'center'
 };
 
 const labelStyle: React.CSSProperties = {
-    fontSize: '11px'
+    fontSize: '11px',
+    textAlign: 'right',
+    color: '#334155'
 };
 
-const selectStyle: React.CSSProperties = {
+const selectInputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '2px',
+    padding: '2px 4px',
     fontSize: '11px',
-    border: '1px solid #7f9db9'
+    border: '1px solid #cbd5e1',
+    borderRadius: '2px',
+    backgroundColor: '#ffffff',
+    outline: 'none',
+    height: '22px'
 };
 
-const inputStyle: React.CSSProperties = {
+const textInputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '2px',
+    padding: '2px 4px',
     fontSize: '11px',
-    border: '1px solid #7f9db9',
-    backgroundColor: '#ffffff'
+    border: '1px solid #cbd5e1',
+    borderRadius: '2px',
+    backgroundColor: '#ffffff',
+    boxSizing: 'border-box',
+    outline: 'none',
+    height: '22px'
 };
 
-const winboxCmdBtnStyle: React.CSSProperties = {
-    padding: '3px',
+const actionButtonStyle: React.CSSProperties = {
+    padding: '3px 6px',
     fontSize: '11px',
-    backgroundColor: '#f0f0f0',
-    border: '1px solid #ffffff',
-    borderBottomColor: '#808080',
-    borderRightColor: '#808080',
-    cursor: 'pointer'
+    backgroundColor: '#ffffff',
+    border: '1px solid #cbd5e1',
+    borderRadius: '2px',
+    cursor: 'pointer',
+    textAlign: 'center',
+    color: '#1e293b',
+    boxShadow: '0 1px 1px rgba(0,0,0,0.05)'
 };
