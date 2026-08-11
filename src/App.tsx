@@ -4,6 +4,7 @@ import { WinBox } from './components/WinBox';
 import { DesktopWinBox } from './components/DesktopWinBox';
 import { useStore } from './store/useStore';
 
+
 function App() {
   const currentScreen = useStore(state => state.currentScreen);
 

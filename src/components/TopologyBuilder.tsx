@@ -39,6 +39,7 @@ const TopologyCanvas = () => {
     const [nodeToDelete, setNodeToDelete] = useState<{ id: string; label: string } | null>(null);
     const [showResetModal, setShowResetModal] = useState(false);
     const [isMobile, setIsMobile] = useState(false);
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
     useEffect(() => {
         const checkMobile = () => setIsMobile(window.innerWidth <= 768);
@@ -56,10 +57,13 @@ const TopologyCanvas = () => {
         topologyStatus,
         isTopologyValid,
         openWinBox,
+        openDLinkConfig,
         openLaptopDesktop,
         setContextMenuNode,
         deleteNode
     } = useStore();
+
+    const selectedNode = nodes.find((n) => n.id === selectedNodeId);
 
     const onDragOver = useCallback((event: React.DragEvent) => {
         event.preventDefault();
@@ -157,9 +161,17 @@ const TopologyCanvas = () => {
     };
 
     const handleNodeClick = (_event: React.MouseEvent, node: Node) => {
+        setSelectedNodeId(node.id);
         if (node.type === 'laptopNode') {
             openLaptopDesktop(node.id);
+        } else if (node.type === 'dlinkNode') {
+            openDLinkConfig(node.id);
         }
+    };
+
+    const handlePaneClick = () => {
+        setSelectedNodeId(null);
+        setContextMenuNode(null);
     };
 
     const handleNodeContextMenu = (event: React.MouseEvent, node: Node) => {
@@ -184,6 +196,9 @@ const TopologyCanvas = () => {
         if (!nodeToDelete) return;
         deleteNode(nodeToDelete.id);
         setNodeToDelete(null);
+        if (selectedNodeId === nodeToDelete.id) {
+            setSelectedNodeId(null);
+        }
     };
 
     const handleConfirmReset = () => {
@@ -201,8 +216,43 @@ const TopologyCanvas = () => {
                 store.validateTopology();
             }
         }
+        setSelectedNodeId(null);
         setShowResetModal(false);
     };
+
+    const getLaunchConfig = () => {
+        if (!selectedNode) {
+            return {
+                label: 'Launch WinBox',
+                action: openWinBox,
+                disabled: !isTopologyValid,
+            };
+        }
+
+        if (selectedNode.type === 'dlinkNode') {
+            return {
+                label: 'Launch D-Link Web GUI',
+                action: () => openDLinkConfig(selectedNode.id),
+                disabled: false,
+            };
+        }
+
+        if (selectedNode.type === 'laptopNode') {
+            return {
+                label: 'Launch Laptop Desktop',
+                action: () => openLaptopDesktop(selectedNode.id),
+                disabled: false,
+            };
+        }
+
+        return {
+            label: 'Launch WinBox',
+            action: openWinBox,
+            disabled: !isTopologyValid,
+        };
+    };
+
+    const launchConfig = getLaunchConfig();
 
     return (
         <div style={{
@@ -319,21 +369,26 @@ const TopologyCanvas = () => {
                     <div style={{ fontSize: '12px', fontWeight: 'bold', color: isTopologyValid ? '#15803d' : '#b91c1c' }}>
                         {topologyStatus}
                     </div>
+                    {selectedNode && (
+                        <div style={{ fontSize: '10px', color: '#1d4ed8', fontWeight: 'bold', marginTop: '4px' }}>
+                            Selected: {selectedNode.data?.label || selectedNode.type}
+                        </div>
+                    )}
                 </div>
 
                 <button
-                    disabled={!isTopologyValid}
-                    onClick={openWinBox}
+                    disabled={launchConfig.disabled}
+                    onClick={launchConfig.action}
                     style={{
                         ...btnWinBoxStyle,
-                        backgroundColor: isTopologyValid ? '#0284c7' : '#9ca3af',
-                        cursor: isTopologyValid ? 'pointer' : 'not-allowed',
+                        backgroundColor: launchConfig.disabled ? '#9ca3af' : '#0284c7',
+                        cursor: launchConfig.disabled ? 'not-allowed' : 'pointer',
                         padding: isMobile ? '8px 12px' : '12px',
                         fontSize: isMobile ? '12px' : '14px',
                         width: isMobile ? 'auto' : '100%'
                     }}
                 >
-                    Launch WinBox
+                    {launchConfig.label}
                 </button>
 
                 <button
@@ -361,7 +416,6 @@ const TopologyCanvas = () => {
                     color: '#000000',
                     colorScheme: 'light'
                 }}
-                onClick={() => setContextMenuNode(null)}
             >
                 <DLinkContextMenu />
 
@@ -375,6 +429,7 @@ const TopologyCanvas = () => {
                     onDrop={onDrop}
                     onDragOver={onDragOver}
                     onNodeClick={handleNodeClick}
+                    onPaneClick={handlePaneClick}
                     onNodeContextMenu={handleNodeContextMenu}
                     fitViewOptions={{ padding: 0.2 }}
                     snapToGrid={true}
