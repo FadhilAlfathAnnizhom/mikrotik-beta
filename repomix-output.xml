@@ -60,11 +60,8 @@ src/
       StartMenu.tsx
       Taskbar.tsx
       WindowManager.tsx
-    winbox/
-      NatRuleModal.tsx
     CustomNodes.tsx
     DesktopWinBox.tsx
-    DHCPEngine.tsx
     DhcpSetupWizard.tsx
     DLinkConfigurationDesktop.tsx
     DLinkContextMenu.tsx
@@ -2037,267 +2034,6 @@ export const WindowManager: React.FC<WindowManagerProps> = ({ title, icon, onClo
 };
 </file>
 
-<file path="src/components/winbox/NatRuleModal.tsx">
-import React, { useState } from 'react';
-import { useStore, type FirewallNatRule } from '../../store/useStore';
-
-interface NatRuleModalProps {
-    ruleToEdit?: FirewallNatRule | null;
-    onClose: () => void;
-}
-
-export const NatRuleModal: React.FC<NatRuleModalProps> = ({ ruleToEdit, onClose }) => {
-    const { interfaces, addFirewallNatRule, updateFirewallNatRule } = useStore();
-
-    const [activeTab, setActiveTab] = useState<'General' | 'Advanced' | 'Extra' | 'Action' | 'Statistics'>('General');
-
-    // Form State
-    const [chain, setChain] = useState<'srcnat' | 'dstnat'>(ruleToEdit?.chain || 'srcnat');
-    const [srcAddress, setSrcAddress] = useState(ruleToEdit?.srcAddress || '');
-    const [dstAddress, setDstAddress] = useState(ruleToEdit?.dstAddress || '');
-    const [inInterface, setInInterface] = useState(ruleToEdit?.inInterface || '');
-    const [outInterface, setOutInterface] = useState(ruleToEdit?.outInterface || 'ether1');
-
-    const [action, setAction] = useState<FirewallNatRule['action']>(ruleToEdit?.action || 'masquerade');
-    const [toAddresses, setToAddresses] = useState(ruleToEdit?.toAddresses || '');
-    const [toPorts, setToPorts] = useState(ruleToEdit?.toPorts || '');
-    const [comment, setComment] = useState(ruleToEdit?.comment || '');
-    const [disabled, setDisabled] = useState(ruleToEdit?.disabled || false);
-
-    const handleSave = () => {
-        const payload = {
-            chain,
-            srcAddress: srcAddress.trim() || undefined,
-            dstAddress: dstAddress.trim() || undefined,
-            inInterface: inInterface || undefined,
-            outInterface: outInterface || undefined,
-            action,
-            toAddresses: action === 'src-nat' || action === 'dst-nat' ? toAddresses.trim() : undefined,
-            toPorts: action === 'redirect' || action === 'dst-nat' ? toPorts.trim() : undefined,
-            comment: comment.trim() || undefined,
-            disabled,
-        };
-
-        if (ruleToEdit) {
-            updateFirewallNatRule(ruleToEdit.id, payload);
-        } else {
-            addFirewallNatRule(payload);
-        }
-        onClose();
-    };
-
-    return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="w-[520px] bg-[#d4d0c8] border-2 border-t-white border-l-white border-b-gray-800 border-r-gray-800 shadow-xl font-sans text-xs select-none">
-
-                {/* Title Bar WinBox Classic */}
-                <div className="bg-[#000080] text-white font-bold px-2 py-1 flex justify-between items-center text-xs">
-                    <span>{ruleToEdit ? `NAT Rule <${ruleToEdit.id}>` : 'New NAT Rule'}</span>
-                    <button
-                        onClick={onClose}
-                        className="bg-[#d4d0c8] text-black font-bold px-1.5 border border-t-white border-l-white border-b-black border-r-black active:border-none"
-                    >
-                        ✕
-                    </button>
-                </div>
-
-                {/* Tab Navigation */}
-                <div className="flex bg-[#d4d0c8] border-b border-gray-400 px-1 pt-1 gap-0.5">
-                    {(['General', 'Advanced', 'Extra', 'Action', 'Statistics'] as const).map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-3 py-1 border-t border-l border-r rounded-t-sm text-xs ${activeTab === tab
-                                ? 'bg-[#d4d0c8] font-bold border-gray-600 border-b-transparent relative top-[1px] z-10'
-                                : 'bg-[#c0c0c0] border-gray-400 text-gray-700 hover:bg-[#d0d0d0]'
-                                }`}
-                        >
-                            {tab}
-                        </button>
-                    ))}
-                </div>
-
-                {/* Modal Body */}
-                <div className="flex p-3 gap-3 bg-[#d4d0c8]">
-
-                    {/* Main Content Area (Tab Views) */}
-                    <div className="flex-1 border border-gray-500 p-2.5 bg-[#d4d0c8] min-h-[260px]">
-                        {activeTab === 'General' && (
-                            <div className="flex flex-col gap-2">
-                                <div className="flex items-center">
-                                    <label className="w-28 text-right pr-2">Chain:</label>
-                                    <select
-                                        value={chain}
-                                        onChange={(e) => setChain(e.target.value as any)}
-                                        className="flex-1 bg-white border border-gray-600 px-1 py-0.5 focus:outline-none"
-                                    >
-                                        <option value="srcnat">srcnat</option>
-                                        <option value="dstnat">dstnat</option>
-                                    </select>
-                                </div>
-
-                                <div className="flex items-center">
-                                    <label className="w-28 text-right pr-2">Src. Address:</label>
-                                    <input
-                                        type="text"
-                                        value={srcAddress}
-                                        onChange={(e) => setSrcAddress(e.target.value)}
-                                        className="flex-1 bg-white border border-gray-600 px-1 py-0.5 focus:outline-none"
-                                    />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <label className="w-28 text-right pr-2">Dst. Address:</label>
-                                    <input
-                                        type="text"
-                                        value={dstAddress}
-                                        onChange={(e) => setDstAddress(e.target.value)}
-                                        className="flex-1 bg-white border border-gray-600 px-1 py-0.5 focus:outline-none"
-                                    />
-                                </div>
-
-                                <div className="flex items-center">
-                                    <label className="w-28 text-right pr-2">In. Interface:</label>
-                                    <select
-                                        value={inInterface}
-                                        onChange={(e) => setInInterface(e.target.value)}
-                                        className="flex-1 bg-white border border-gray-600 px-1 py-0.5 focus:outline-none"
-                                    >
-                                        <option value="">(all)</option>
-                                        {interfaces.map((iface) => (
-                                            <option key={iface.id} value={iface.name}>
-                                                {iface.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-
-                                <div className="flex items-center">
-                                    <label className="w-28 text-right pr-2 text-blue-900 font-medium">Out. Interface:</label>
-                                    <select
-                                        value={outInterface}
-                                        onChange={(e) => setOutInterface(e.target.value)}
-                                        className="flex-1 bg-white border border-gray-600 px-1 py-0.5 focus:outline-none"
-                                    >
-                                        <option value="">(all)</option>
-                                        {interfaces.map((iface) => (
-                                            <option key={iface.id} value={iface.name}>
-                                                {iface.name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'Action' && (
-                            <div className="flex flex-col gap-2">
-                                <div className="flex items-center">
-                                    <label className="w-28 text-right pr-2 text-blue-900 font-medium">Action:</label>
-                                    <select
-                                        value={action}
-                                        onChange={(e) => setAction(e.target.value as any)}
-                                        className="flex-1 bg-white border border-gray-600 px-1 py-0.5 focus:outline-none"
-                                    >
-                                        <option value="masquerade">masquerade</option>
-                                        <option value="src-nat">src-nat</option>
-                                        <option value="dst-nat">dst-nat</option>
-                                        <option value="redirect">redirect</option>
-                                        <option value="accept">accept</option>
-                                        <option value="drop">drop</option>
-                                    </select>
-                                </div>
-
-                                {/* Dynamic Field: Input To Addresses (tampil jika src-nat atau dst-nat dipilih) */}
-                                {(action === 'src-nat' || action === 'dst-nat') && (
-                                    <div className="flex items-center">
-                                        <label className="w-28 text-right pr-2 text-blue-900 font-medium">To Addresses:</label>
-                                        <input
-                                            type="text"
-                                            value={toAddresses}
-                                            placeholder="e.g. 200.210.220.2"
-                                            onChange={(e) => setToAddresses(e.target.value)}
-                                            className="flex-1 bg-white border border-gray-600 px-1 py-0.5 focus:outline-none"
-                                        />
-                                    </div>
-                                )}
-
-                                {/* Dynamic Field: Input To Ports (tampil jika redirect atau dst-nat) */}
-                                {(action === 'redirect' || action === 'dst-nat') && (
-                                    <div className="flex items-center">
-                                        <label className="w-28 text-right pr-2">To Ports:</label>
-                                        <input
-                                            type="text"
-                                            value={toPorts}
-                                            onChange={(e) => setToPorts(e.target.value)}
-                                            className="flex-1 bg-white border border-gray-600 px-1 py-0.5 focus:outline-none"
-                                        />
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {activeTab === 'Advanced' && (
-                            <div className="text-gray-500 italic p-2">Advanced configurations...</div>
-                        )}
-                        {activeTab === 'Extra' && (
-                            <div className="text-gray-500 italic p-2">Extra match criteria...</div>
-                        )}
-                        {activeTab === 'Statistics' && (
-                            <div className="text-gray-500 italic p-2">Rule traffic counters...</div>
-                        )}
-                    </div>
-
-                    {/* Right Action Sidebar (Tombol-tombol khas WinBox) */}
-                    <div className="flex flex-col gap-1.5 w-24">
-                        <button
-                            onClick={handleSave}
-                            className="bg-[#d4d0c8] hover:bg-[#e4e0d8] text-black border-2 border-t-white border-l-white border-b-gray-800 border-r-gray-800 py-1 text-center font-medium active:border-none"
-                        >
-                            OK
-                        </button>
-                        <button
-                            onClick={onClose}
-                            className="bg-[#d4d0c8] hover:bg-[#e4e0d8] text-black border-2 border-t-white border-l-white border-b-gray-800 border-r-gray-800 py-1 text-center font-medium active:border-none"
-                        >
-                            Cancel
-                        </button>
-                        <button
-                            onClick={handleSave}
-                            className="bg-[#d4d0c8] hover:bg-[#e4e0d8] text-black border-2 border-t-white border-l-white border-b-gray-800 border-r-gray-800 py-1 text-center font-medium active:border-none"
-                        >
-                            Apply
-                        </button>
-                        <button
-                            onClick={() => setDisabled(!disabled)}
-                            className="bg-[#d4d0c8] hover:bg-[#e4e0d8] text-black border-2 border-t-white border-l-white border-b-gray-800 border-r-gray-800 py-1 text-center font-medium active:border-none"
-                        >
-                            {disabled ? 'Enable' : 'Disable'}
-                        </button>
-                        <button
-                            onClick={() => {
-                                const c = prompt('Comment:', comment);
-                                if (c !== null) setComment(c);
-                            }}
-                            className="bg-[#d4d0c8] hover:bg-[#e4e0d8] text-black border-2 border-t-white border-l-white border-b-gray-800 border-r-gray-800 py-1 text-center font-medium active:border-none"
-                        >
-                            Comment
-                        </button>
-                    </div>
-
-                </div>
-
-                {/* Footer Status Bar */}
-                <div className="bg-[#d4d0c8] border-t border-gray-400 px-2 py-0.5 text-gray-700 text-[11px]">
-                    {disabled ? 'disabled' : 'enabled'}
-                </div>
-
-            </div>
-        </div>
-    );
-};
-</file>
-
 <file path="src/components/CustomNodes.tsx">
 import React from 'react';
 import { Handle, Position, type NodeProps } from 'reactflow';
@@ -3360,134 +3096,6 @@ const dialogHeaderStyle: React.CSSProperties = { background: '#0A246A', color: '
 const inputStyle: React.CSSProperties = { width: '130px', fontSize: '11px', padding: '2px 3px' };
 </file>
 
-<file path="src/components/DHCPEngine.tsx">
-import { useEffect } from 'react';
-import { useStore } from '../store/useStore';
-
-export const DHCPEngine = () => {
-    const { nodes, edges } = useStore();
-
-    useEffect(() => {
-        // 1. Cari semua node Laptop yang diset ke mode 'dhcp'
-        const laptopNodes = nodes.filter(
-            (n) => n.type === 'laptopNode' && (n.data?.ipAssignmentMode === 'dhcp' || !n.data?.ipAssignmentMode)
-        );
-
-        if (laptopNodes.length === 0) return;
-
-        let hasChanges = false;
-        const updatedNodes = nodes.map((node) => {
-            // Hanya proses jika node adalah Laptop yang bermode DHCP
-            if (node.type !== 'laptopNode' || node.data?.ipAssignmentMode === 'static') {
-                return node;
-            }
-
-            // 2. Cari Router MikroTik yang terhubung ke Laptop ini (bisa via Switch / Wireless / Direct)
-            const connectedRouter = findConnectedRouter(node.id, nodes, edges);
-
-            if (connectedRouter && connectedRouter.data?.dhcpServerActive) {
-                const dhcpConfig = connectedRouter.data.dhcpServerConfig || {
-                    network: '192.168.88.0/24',
-                    gateway: '192.168.88.1',
-                    subnetMask: '255.255.255.0',
-                    dns: '8.8.8.8',
-                    poolStart: 10,
-                };
-
-                // Hitung IP otomatis berdasarkan index/ID Laptop agar unik
-                const laptopIndex = nodes.filter((n) => n.type === 'laptopNode').findIndex((n) => n.id === node.id);
-                const ipOffset = (dhcpConfig.poolStart || 10) + laptopIndex;
-
-                const baseIpPrefix = dhcpConfig.gateway ? dhcpConfig.gateway.split('.').slice(0, 3).join('.') : '192.168.88';
-                const assignedIp = `${baseIpPrefix}.${ipOffset}`;
-
-                // Cek apakah data jaringan laptop berbeda dari nilai DHCP baru
-                if (
-                    node.data?.ipAddress !== assignedIp ||
-                    node.data?.gateway !== dhcpConfig.gateway ||
-                    node.data?.subnetMask !== dhcpConfig.subnetMask ||
-                    node.data?.dnsServer !== dhcpConfig.dns ||
-                    !node.data?.dhcpBound
-                ) {
-                    hasChanges = true;
-                    return {
-                        ...node,
-                        data: {
-                            ...node.data,
-                            ipAssignmentMode: 'dhcp',
-                            ipAddress: assignedIp,
-                            subnetMask: dhcpConfig.subnetMask || '255.255.255.0',
-                            gateway: dhcpConfig.gateway || '192.168.88.1',
-                            dnsServer: dhcpConfig.dns || '8.8.8.8',
-                            dhcpBound: true,
-                            dhcpServerSource: connectedRouter.data?.label || 'MikroTik Router',
-                        },
-                    };
-                }
-            } else {
-                // Jika terputus dari Router DHCP / DHCP MikroTik dimatikan
-                if (node.data?.dhcpBound || node.data?.ipAddress) {
-                    hasChanges = true;
-                    return {
-                        ...node,
-                        data: {
-                            ...node.data,
-                            ipAssignmentMode: 'dhcp',
-                            ipAddress: '',
-                            subnetMask: '',
-                            gateway: '',
-                            dnsServer: '',
-                            dhcpBound: false,
-                            dhcpServerSource: null,
-                        },
-                    };
-                }
-            }
-
-            return node;
-        });
-
-        // 3. Terapkan perubahan ke state utama tanpa merusak node lain
-        if (hasChanges) {
-            useStore.setState({ nodes: updatedNodes });
-        }
-    }, [nodes, edges]);
-
-    return null;
-};
-
-/**
- * Helper BFS untuk menelusuri jalur koneksi dari Laptop ke Router MikroTik
- */
-function findConnectedRouter(startNodeId: string, nodes: any[], edges: any[]): any | null {
-    const visited = new Set<string>();
-    const queue = [startNodeId];
-
-    while (queue.length > 0) {
-        const currentId = queue.shift()!;
-        if (visited.has(currentId)) continue;
-        visited.add(currentId);
-
-        const currentNode = nodes.find((n) => n.id === currentId);
-        if (currentNode && currentNode.type === 'routerNode') {
-            return currentNode;
-        }
-
-        // Cari semua tetangga yang terhubung lewat edges (kabel maupun wifi)
-        const connectedEdges = edges.filter((e) => e.source === currentId || e.target === currentId);
-
-        for (const edge of connectedEdges) {
-            const neighborId = edge.source === currentId ? edge.target : edge.source;
-            if (!visited.has(neighborId)) {
-                queue.push(neighborId);
-            }
-        }
-    }
-
-    return null;
-}
-</file>
-
 <file path="src/components/DhcpSetupWizard.tsx">
 import React, { useState, useEffect } from 'react';
 import { useStore } from '../store/useStore';
@@ -4214,623 +3822,6 @@ export const DLinkDIR612Node = ({ data }: NodeProps) => {
             </div>
         </div>
     );
-};
-</file>
-
-<file path="src/components/TopologyBuilder.tsx">
-import React, { useRef, useCallback, useState, useEffect } from 'react';
-import ReactFlow, {
-    Background,
-    Controls,
-    MiniMap,
-    ReactFlowProvider,
-    useReactFlow,
-    type Node,
-} from 'reactflow';
-import 'reactflow/dist/style.css';
-import { DLinkDIR612Node } from './DLinkDIR612Node';
-import { WirelessEngine } from './WirelessEngine';
-import { DLinkContextMenu } from './DLinkContextMenu';
-import { DLinkConfigurationDesktop } from './DLinkConfigurationDesktop';
-import { useStore } from '../store/useStore';
-import { ISPNode, RouterNode, SwitchNode, LaptopNode } from './CustomNodes';
-import { LaptopDesktop } from './LaptopDesktop/LaptopDesktop';
-
-// Import Gambar Asset Logo
-import ispImg from '../assets/isp.png';
-import apImg from '../assets/ap.png';
-import routerImg from '../assets/router.png';
-import switchImg from '../assets/switch.png';
-import laptopImg from '../assets/leptop.png';
-
-const nodeTypes = {
-    ispNode: ISPNode,
-    routerNode: RouterNode,
-    switchNode: SwitchNode,
-    laptopNode: LaptopNode,
-    dlinkNode: DLinkDIR612Node,
-};
-
-const TopologyCanvas = () => {
-    const reactFlowWrapper = useRef<HTMLDivElement>(null);
-    const { screenToFlowPosition } = useReactFlow();
-
-    const touchedNodeTypeRef = useRef<{ type: string; label: string } | null>(null);
-    const [nodeToDelete, setNodeToDelete] = useState<{ id: string; label: string } | null>(null);
-    const [showResetModal, setShowResetModal] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
-    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth <= 768);
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
-
-    const {
-        nodes,
-        edges,
-        onNodesChange,
-        onEdgesChange,
-        onConnect,
-        topologyStatus,
-        isTopologyValid,
-        openWinBox,
-        openDLinkConfig,
-        openLaptopDesktop,
-        setContextMenuNode,
-        deleteNode
-    } = useStore();
-
-    const selectedNode = nodes.find((n) => n.id === selectedNodeId);
-
-    const onDragOver = useCallback((event: React.DragEvent) => {
-        event.preventDefault();
-        event.dataTransfer.dropEffect = 'move';
-    }, []);
-
-    const onDrop = useCallback(
-        (event: React.DragEvent) => {
-            event.preventDefault();
-
-            const type = event.dataTransfer.getData('application/reactflow');
-            const label = event.dataTransfer.getData('application/reactflow-label');
-
-            if (!type) return;
-
-            const position = screenToFlowPosition({
-                x: event.clientX,
-                y: event.clientY,
-            });
-
-            position.x -= 50;
-            position.y -= 25;
-
-            addNewNode(type, label, position);
-        },
-        [screenToFlowPosition]
-    );
-
-    const onDragStart = (event: React.DragEvent, nodeType: string, label: string) => {
-        event.dataTransfer.setData('application/reactflow', nodeType);
-        event.dataTransfer.setData('application/reactflow-label', label);
-        event.dataTransfer.effectAllowed = 'move';
-    };
-
-    const handleTouchStart = (nodeType: string, label: string) => {
-        touchedNodeTypeRef.current = { type: nodeType, label };
-    };
-
-    const handleTouchEnd = (event: React.TouchEvent) => {
-        if (!touchedNodeTypeRef.current) return;
-
-        const { type, label } = touchedNodeTypeRef.current;
-        touchedNodeTypeRef.current = null;
-
-        const touch = event.changedTouches[0];
-        if (!touch || !reactFlowWrapper.current) return;
-
-        const rect = reactFlowWrapper.current.getBoundingClientRect();
-
-        if (
-            touch.clientX >= rect.left &&
-            touch.clientX <= rect.right &&
-            touch.clientY >= rect.top &&
-            touch.clientY <= rect.bottom
-        ) {
-            const position = screenToFlowPosition({
-                x: touch.clientX,
-                y: touch.clientY,
-            });
-
-            position.x -= 50;
-            position.y -= 25;
-
-            addNewNode(type, label, position);
-        }
-    };
-
-    const handleTapAdd = (type: string, label: string) => {
-        if (!reactFlowWrapper.current) return;
-        const rect = reactFlowWrapper.current.getBoundingClientRect();
-        const centerX = rect.left + rect.width / 2;
-        const centerY = rect.top + rect.height / 2;
-
-        const position = screenToFlowPosition({
-            x: centerX,
-            y: centerY,
-        });
-
-        addNewNode(type, label, position);
-    };
-
-    const addNewNode = (type: string, label: string, position: { x: number; y: number }) => {
-        const newNode = {
-            id: `${type}-${Date.now()}`,
-            type,
-            position,
-            data: { label },
-        };
-
-        useStore.setState((state) => ({
-            nodes: [...state.nodes, newNode],
-        }));
-
-        useStore.getState().validateTopology();
-    };
-
-    const handleNodeClick = (_event: React.MouseEvent, node: Node) => {
-        setSelectedNodeId(node.id);
-        if (node.type === 'laptopNode') {
-            openLaptopDesktop(node.id);
-        } else if (node.type === 'dlinkNode') {
-            openDLinkConfig(node.id);
-        }
-    };
-
-    const handlePaneClick = () => {
-        setSelectedNodeId(null);
-        setContextMenuNode(null);
-    };
-
-    const handleNodeContextMenu = (event: React.MouseEvent, node: Node) => {
-        event.preventDefault();
-
-        if (node.type === 'dlinkNode') {
-            setContextMenuNode({
-                id: node.id,
-                x: event.clientX,
-                y: event.clientY,
-            });
-            return;
-        }
-
-        if (navigator.vibrate) {
-            navigator.vibrate(50);
-        }
-        setNodeToDelete({ id: node.id, label: node.data?.label || node.id });
-    };
-
-    const handleDeleteNode = () => {
-        if (!nodeToDelete) return;
-        deleteNode(nodeToDelete.id);
-        setNodeToDelete(null);
-        if (selectedNodeId === nodeToDelete.id) {
-            setSelectedNodeId(null);
-        }
-    };
-
-    const handleConfirmReset = () => {
-        const store = useStore.getState() as any;
-        if (typeof store.resetAll === 'function') {
-            store.resetAll();
-        } else if (typeof store.resetTopology === 'function') {
-            store.resetTopology();
-        } else {
-            useStore.setState({
-                nodes: [],
-                edges: [],
-            });
-            if (typeof store.validateTopology === 'function') {
-                store.validateTopology();
-            }
-        }
-        setSelectedNodeId(null);
-        setShowResetModal(false);
-    };
-
-    const getLaunchConfig = () => {
-        if (!selectedNode) {
-            return {
-                label: 'Launch WinBox',
-                action: openWinBox,
-                disabled: !isTopologyValid,
-            };
-        }
-
-        if (selectedNode.type === 'dlinkNode') {
-            return {
-                label: 'Launch D-Link Web GUI',
-                action: () => openDLinkConfig(selectedNode.id),
-                disabled: false,
-            };
-        }
-
-        if (selectedNode.type === 'laptopNode') {
-            return {
-                label: 'Launch Laptop Desktop',
-                action: () => openLaptopDesktop(selectedNode.id),
-                disabled: false,
-            };
-        }
-
-        return {
-            label: 'Launch WinBox',
-            action: openWinBox,
-            disabled: !isTopologyValid,
-        };
-    };
-
-    const launchConfig = getLaunchConfig();
-
-    return (
-        <div style={{
-            display: 'flex',
-            flexDirection: isMobile ? 'column' : 'row',
-            width: '100vw',
-            height: '100vh',
-            overflow: 'hidden',
-            backgroundColor: '#ffffff',
-            color: '#000000',
-            colorScheme: 'light'
-        }}>
-            <style>{`
-                .react-flow, .react-flow__pane, .react-flow__viewport {
-                    background-color: #ffffff !important;
-                    color: #000000 !important;
-                    color-scheme: light !important;
-                }
-                .react-flow__panel {
-                    color-scheme: light !important;
-                }
-            `}</style>
-
-            <div style={{
-                ...sidebarContainerStyle,
-                width: isMobile ? '100%' : '240px',
-                height: isMobile ? 'auto' : '100%',
-                maxHeight: isMobile ? '35vh' : 'none',
-                overflowY: 'auto',
-                borderRight: isMobile ? 'none' : '1px solid #e5e7eb',
-                borderBottom: isMobile ? '1px solid #e5e7eb' : 'none',
-                flexDirection: isMobile ? 'row' : 'column',
-                flexWrap: isMobile ? 'wrap' : 'nowrap',
-                justifyContent: isMobile ? 'center' : 'flex-start',
-            }}>
-                {!isMobile && (
-                    <>
-                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px', color: '#1f2937' }}>
-                            Topology Builder
-                        </h2>
-                        <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
-                            Drag or tap components:
-                        </p>
-                    </>
-                )}
-
-                <div
-                    draggable
-                    onDragStart={(e) => onDragStart(e, 'ispNode', 'Cloud ISP')}
-                    onTouchStart={() => handleTouchStart('ispNode', 'Cloud ISP')}
-                    onTouchEnd={handleTouchEnd}
-                    onClick={() => isMobile && handleTapAdd('ispNode', 'Cloud ISP')}
-                    style={paletteItemStyle}
-                >
-                    <img src={ispImg} alt="ISP" style={sidebarIconStyle} />
-                    <span>Cloud ISP</span>
-                </div>
-
-                <div
-                    draggable
-                    onDragStart={(e) => onDragStart(e, 'dlinkNode', 'D-Link DIR-612')}
-                    onTouchStart={() => handleTouchStart('dlinkNode', 'D-Link DIR-612')}
-                    onTouchEnd={handleTouchEnd}
-                    onClick={() => isMobile && handleTapAdd('dlinkNode', 'D-Link DIR-612')}
-                    style={paletteItemStyle}
-                >
-                    <img src={apImg} alt="D-Link" style={sidebarIconStyle} />
-                    <span>D-Link DIR-612</span>
-                </div>
-
-                <div
-                    draggable
-                    onDragStart={(e) => onDragStart(e, 'routerNode', 'Router MikroTik')}
-                    onTouchStart={() => handleTouchStart('routerNode', 'Router MikroTik')}
-                    onTouchEnd={handleTouchEnd}
-                    onClick={() => isMobile && handleTapAdd('routerNode', 'Router MikroTik')}
-                    style={paletteItemStyle}
-                >
-                    <img src={routerImg} alt="Router" style={sidebarIconStyle} />
-                    <span>Router MikroTik</span>
-                </div>
-
-                <div
-                    draggable
-                    onDragStart={(e) => onDragStart(e, 'switchNode', 'Switch')}
-                    onTouchStart={() => handleTouchStart('switchNode', 'Switch')}
-                    onTouchEnd={handleTouchEnd}
-                    onClick={() => isMobile && handleTapAdd('switchNode', 'Switch')}
-                    style={paletteItemStyle}
-                >
-                    <img src={switchImg} alt="Switch" style={sidebarIconStyle} />
-                    <span>Switch</span>
-                </div>
-
-                <div
-                    draggable
-                    onDragStart={(e) => onDragStart(e, 'laptopNode', 'Laptop/PC')}
-                    onTouchStart={() => handleTouchStart('laptopNode', 'Laptop/PC')}
-                    onTouchEnd={handleTouchEnd}
-                    onClick={() => isMobile && handleTapAdd('laptopNode', 'Laptop/PC')}
-                    style={paletteItemStyle}
-                >
-                    <img src={laptopImg} alt="Laptop" style={sidebarIconStyle} />
-                    <span>Laptop/PC</span>
-                </div>
-
-                <div style={{
-                    ...statusCardStyle,
-                    marginTop: isMobile ? '0px' : 'auto',
-                    backgroundColor: isTopologyValid ? '#dcfce7' : '#fef2f2',
-                    padding: isMobile ? '6px 12px' : '12px'
-                }}>
-                    <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: 'bold' }}>Status:</div>
-                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: isTopologyValid ? '#15803d' : '#b91c1c' }}>
-                        {topologyStatus}
-                    </div>
-                    {selectedNode && (
-                        <div style={{ fontSize: '10px', color: '#1d4ed8', fontWeight: 'bold', marginTop: '4px' }}>
-                            Selected: {selectedNode.data?.label || selectedNode.type}
-                        </div>
-                    )}
-                </div>
-
-                <button
-                    disabled={launchConfig.disabled}
-                    onClick={launchConfig.action}
-                    style={{
-                        ...btnWinBoxStyle,
-                        backgroundColor: launchConfig.disabled ? '#9ca3af' : '#0284c7',
-                        cursor: launchConfig.disabled ? 'not-allowed' : 'pointer',
-                        padding: isMobile ? '8px 12px' : '12px',
-                        fontSize: isMobile ? '12px' : '14px',
-                        width: isMobile ? 'auto' : '100%'
-                    }}
-                >
-                    {launchConfig.label}
-                </button>
-
-                <button
-                    onClick={() => setShowResetModal(true)}
-                    style={{
-                        ...btnResetStyle,
-                        padding: isMobile ? '8px 12px' : '10px 12px',
-                        fontSize: isMobile ? '12px' : '13px',
-                        width: isMobile ? 'auto' : '100%',
-                        marginTop: isMobile ? '0px' : '6px'
-                    }}
-                >
-                    🔄 Reset Semua
-                </button>
-            </div>
-
-            <div
-                ref={reactFlowWrapper}
-                style={{
-                    flexGrow: 1,
-                    height: '100%',
-                    width: '100%',
-                    position: 'relative',
-                    backgroundColor: '#ffffff',
-                    color: '#000000',
-                    colorScheme: 'light'
-                }}
-            >
-                <DLinkContextMenu />
-
-                <ReactFlow
-                    nodes={nodes}
-                    edges={edges}
-                    nodeTypes={nodeTypes}
-                    onNodesChange={onNodesChange}
-                    onEdgesChange={onEdgesChange}
-                    onConnect={onConnect}
-                    onDrop={onDrop}
-                    onDragOver={onDragOver}
-                    onNodeClick={handleNodeClick}
-                    onPaneClick={handlePaneClick}
-                    onNodeContextMenu={handleNodeContextMenu}
-                    fitViewOptions={{ padding: 0.2 }}
-                    snapToGrid={true}
-                    snapGrid={[15, 15]}
-                    panOnScroll={true}
-                    zoomOnPinch={true}
-                    preventScrolling={false}
-                    connectOnClick={true}
-                    connectionRadius={35}
-                    style={{ backgroundColor: '#ffffff' }}
-                >
-                    <WirelessEngine />
-                    <Background color="#d1d5db" gap={16} />
-                    <Controls />
-                    <MiniMap style={{ display: isMobile ? 'none' : 'block' }} />
-                </ReactFlow>
-            </div>
-
-            {nodeToDelete && (
-                <div style={modalOverlayStyle}>
-                    <div style={modalBoxStyle}>
-                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>🗑️</div>
-                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '6px', color: '#111827' }}>
-                            Hapus Perangkat?
-                        </h3>
-                        <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '18px' }}>
-                            Apakah Anda yakin ingin menghapus <strong>{nodeToDelete.label}</strong> dari topologi?
-                        </p>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button onClick={() => setNodeToDelete(null)} style={btnCancelStyle}>
-                                Batal
-                            </button>
-                            <button onClick={handleDeleteNode} style={btnConfirmDeleteStyle}>
-                                Hapus
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showResetModal && (
-                <div style={modalOverlayStyle}>
-                    <div style={modalBoxStyle}>
-                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔄</div>
-                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '6px', color: '#111827' }}>
-                            Reset Semua Topologi?
-                        </h3>
-                        <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '18px' }}>
-                            Tindakan ini akan mengosongkan topologi.
-                        </p>
-                        <div style={{ display: 'flex', gap: '10px' }}>
-                            <button onClick={() => setShowResetModal(false)} style={btnCancelStyle}>
-                                Batal
-                            </button>
-                            <button onClick={handleConfirmReset} style={btnConfirmDeleteStyle}>
-                                Reset Sekarang
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            <DLinkConfigurationDesktop />
-            <LaptopDesktop />
-        </div>
-    );
-};
-
-export const TopologyBuilder = () => {
-    return (
-        <ReactFlowProvider>
-            <TopologyCanvas />
-        </ReactFlowProvider>
-    );
-};
-
-const sidebarContainerStyle: React.CSSProperties = {
-    padding: '12px',
-    background: '#f9fafb',
-    display: 'flex',
-    gap: '8px',
-    zIndex: 10,
-    userSelect: 'none',
-    touchAction: 'manipulation'
-};
-
-const paletteItemStyle: React.CSSProperties = {
-    padding: '8px 12px',
-    background: '#ffffff',
-    color: '#000000',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '12px',
-    fontWeight: 600,
-    cursor: 'grab',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    touchAction: 'none'
-};
-
-const sidebarIconStyle: React.CSSProperties = {
-    width: '24px',
-    height: '24px',
-    objectFit: 'contain'
-};
-
-const statusCardStyle: React.CSSProperties = {
-    borderRadius: '6px',
-    textAlign: 'center',
-    border: '1px solid #e5e7eb',
-    display: 'flex',
-    flexDirection: 'column',
-    justifyContent: 'center'
-};
-
-const btnWinBoxStyle: React.CSSProperties = {
-    color: 'white',
-    fontWeight: 'bold',
-    borderRadius: '6px',
-    border: 'none',
-};
-
-const btnResetStyle: React.CSSProperties = {
-    color: '#dc2626',
-    backgroundColor: '#fef2f2',
-    border: '1px solid #fca5a5',
-    fontWeight: 'bold',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s',
-};
-
-const modalOverlayStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 9999,
-    padding: '16px'
-};
-
-const modalBoxStyle: React.CSSProperties = {
-    backgroundColor: '#ffffff',
-    borderRadius: '12px',
-    padding: '20px',
-    width: '100%',
-    maxWidth: '320px',
-    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
-    textAlign: 'center',
-    color: '#000000'
-};
-
-const btnCancelStyle: React.CSSProperties = {
-    flex: 1,
-    padding: '10px',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    backgroundColor: '#f3f4f6',
-    color: '#374151',
-    fontWeight: 600,
-    fontSize: '13px',
-    cursor: 'pointer'
-};
-
-const btnConfirmDeleteStyle: React.CSSProperties = {
-    flex: 1,
-    padding: '10px',
-    border: 'none',
-    borderRadius: '6px',
-    backgroundColor: '#dc2626',
-    color: '#ffffff',
-    fontWeight: 600,
-    fontSize: '13px',
-    cursor: 'pointer'
 };
 </file>
 
@@ -5673,53 +4664,6 @@ export const fetchRealISPConfig = async (): Promise<RealISPInfo> => {
 }
 </file>
 
-<file path="src/App.tsx">
-import { ReactFlowProvider } from 'reactflow';
-import { TopologyBuilder } from './components/TopologyBuilder';
-import { WinBox } from './components/WinBox';
-import { DesktopWinBox } from './components/DesktopWinBox';
-import { useStore } from './store/useStore';
-
-function App() {
-  const currentScreen = useStore(state => state.currentScreen);
-
-  return (
-    <ReactFlowProvider>
-      <div
-        style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          opacity: currentScreen === 'topology' ? 1 : 0,
-          pointerEvents: currentScreen === 'topology' ? 'auto' : 'none',
-          transition: 'opacity 0.25s ease-in-out',
-          zIndex: currentScreen === 'topology' ? 10 : 0
-        }}
-      >
-        <TopologyBuilder />
-        <WinBox />
-      </div>
-
-      <div
-        style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-          opacity: currentScreen === 'desktop' ? 1 : 0,
-          pointerEvents: currentScreen === 'desktop' ? 'auto' : 'none',
-          transition: 'opacity 0.25s ease-in-out',
-          zIndex: currentScreen === 'desktop' ? 10 : 0
-        }}
-      >
-        {currentScreen === 'desktop' && <DesktopWinBox />}
-      </div>
-
-      <style>{`
-        .neighbor-row:hover { background-color: #3399FF; color: white; }
-      `}</style>
-    </ReactFlowProvider>
-  );
-}
-
-export default App;
-</file>
-
 <file path="src/index.css">
 :root {
   --text: #6b6375;
@@ -5885,38 +4829,6 @@ dist-ssr
 }
 </file>
 
-<file path="index.html">
-<!doctype html>
-<html lang="en">
-
-<head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>mikrotik-simulator</title>
-</head>
-
-<body>
-  <div id="root"></div>
-  <script type="module" src="/src/main.tsx"></script>
-</body>
-
-</html>
-
-
-<html>
-
-<head>
-  <title>10 tkj 3</title>
-</head>
-
-<body>
-  ini budi
-</body>
-
-</html>
-</file>
-
 <file path="package.json">
 {
   "name": "mikrotik-simulator",
@@ -6056,6 +4968,690 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
 })
+</file>
+
+<file path="src/components/TopologyBuilder.tsx">
+import React, { useRef, useCallback, useState, useEffect } from 'react';
+import ReactFlow, {
+    Background,
+    Controls,
+    MiniMap,
+    ReactFlowProvider,
+    useReactFlow,
+    type Node,
+} from 'reactflow';
+import 'reactflow/dist/style.css';
+import { DLinkDIR612Node } from './DLinkDIR612Node';
+import { WirelessEngine } from './WirelessEngine';
+import { DLinkContextMenu } from './DLinkContextMenu';
+import { DLinkConfigurationDesktop } from './DLinkConfigurationDesktop';
+import { useStore } from '../store/useStore';
+import { ISPNode, RouterNode, SwitchNode, LaptopNode } from './CustomNodes';
+import { LaptopDesktop } from './LaptopDesktop/LaptopDesktop';
+
+// Import Gambar Asset Logo
+import ispImg from '../assets/isp.png';
+import apImg from '../assets/ap.png';
+import routerImg from '../assets/router.png';
+import switchImg from '../assets/switch.png';
+import laptopImg from '../assets/leptop.png';
+
+const nodeTypes = {
+    ispNode: ISPNode,
+    routerNode: RouterNode,
+    switchNode: SwitchNode,
+    laptopNode: LaptopNode,
+    dlinkNode: DLinkDIR612Node,
+};
+
+const TopologyCanvas = () => {
+    const reactFlowWrapper = useRef<HTMLDivElement>(null);
+    const { screenToFlowPosition } = useReactFlow();
+
+    const touchedNodeTypeRef = useRef<{ type: string; label: string } | null>(null);
+    const [nodeToDelete, setNodeToDelete] = useState<{ id: string; label: string } | null>(null);
+    const [showResetModal, setShowResetModal] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+    const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+
+    useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    const {
+        nodes,
+        edges,
+        onNodesChange,
+        onEdgesChange,
+        onConnect,
+        topologyStatus,
+        isTopologyValid,
+        openWinBox,
+        openDLinkConfig,
+        openLaptopDesktop,
+        setContextMenuNode,
+        deleteNode
+    } = useStore();
+
+    const selectedNode = nodes.find((n) => n.id === selectedNodeId);
+
+    const onDragOver = useCallback((event: React.DragEvent) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+    }, []);
+
+    const onDrop = useCallback(
+        (event: React.DragEvent) => {
+            event.preventDefault();
+
+            const type = event.dataTransfer.getData('application/reactflow');
+            const label = event.dataTransfer.getData('application/reactflow-label');
+
+            if (!type) return;
+
+            const position = screenToFlowPosition({
+                x: event.clientX,
+                y: event.clientY,
+            });
+
+            position.x -= 50;
+            position.y -= 25;
+
+            addNewNode(type, label, position);
+        },
+        [screenToFlowPosition]
+    );
+
+    const onDragStart = (event: React.DragEvent, nodeType: string, label: string) => {
+        event.dataTransfer.setData('application/reactflow', nodeType);
+        event.dataTransfer.setData('application/reactflow-label', label);
+        event.dataTransfer.effectAllowed = 'move';
+    };
+
+    const handleTouchStart = (nodeType: string, label: string) => {
+        touchedNodeTypeRef.current = { type: nodeType, label };
+    };
+
+    const handleTouchEnd = (event: React.TouchEvent) => {
+        if (!touchedNodeTypeRef.current) return;
+
+        const { type, label } = touchedNodeTypeRef.current;
+        touchedNodeTypeRef.current = null;
+
+        const touch = event.changedTouches[0];
+        if (!touch || !reactFlowWrapper.current) return;
+
+        const rect = reactFlowWrapper.current.getBoundingClientRect();
+
+        if (
+            touch.clientX >= rect.left &&
+            touch.clientX <= rect.right &&
+            touch.clientY >= rect.top &&
+            touch.clientY <= rect.bottom
+        ) {
+            const position = screenToFlowPosition({
+                x: touch.clientX,
+                y: touch.clientY,
+            });
+
+            position.x -= 50;
+            position.y -= 25;
+
+            addNewNode(type, label, position);
+        }
+    };
+
+    const handleTapAdd = (type: string, label: string) => {
+        if (!reactFlowWrapper.current) return;
+        const rect = reactFlowWrapper.current.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+
+        const position = screenToFlowPosition({
+            x: centerX,
+            y: centerY,
+        });
+
+        addNewNode(type, label, position);
+    };
+
+    const addNewNode = (type: string, label: string, position: { x: number; y: number }) => {
+        const newNode = {
+            id: `${type}-${Date.now()}`,
+            type,
+            position,
+            data: { label },
+        };
+
+        useStore.setState((state) => ({
+            nodes: [...state.nodes, newNode],
+        }));
+
+        useStore.getState().validateTopology();
+    };
+
+    const handleNodeClick = (_event: React.MouseEvent, node: Node) => {
+        setSelectedNodeId(node.id);
+        if (node.type === 'laptopNode') {
+            openLaptopDesktop(node.id);
+        } else if (node.type === 'dlinkNode') {
+            openDLinkConfig(node.id);
+        }
+    };
+
+    const handlePaneClick = () => {
+        setSelectedNodeId(null);
+        setContextMenuNode(null);
+    };
+
+    const handleNodeContextMenu = (event: React.MouseEvent, node: Node) => {
+        event.preventDefault();
+
+        if (node.type === 'dlinkNode') {
+            setContextMenuNode({
+                id: node.id,
+                x: event.clientX,
+                y: event.clientY,
+            });
+            return;
+        }
+
+        if (navigator.vibrate) {
+            navigator.vibrate(50);
+        }
+        setNodeToDelete({ id: node.id, label: node.data?.label || node.id });
+    };
+
+    const handleDeleteNode = () => {
+        if (!nodeToDelete) return;
+        deleteNode(nodeToDelete.id);
+        setNodeToDelete(null);
+        if (selectedNodeId === nodeToDelete.id) {
+            setSelectedNodeId(null);
+        }
+    };
+
+    const handleConfirmReset = () => {
+        const store = useStore.getState() as any;
+        if (typeof store.resetAll === 'function') {
+            store.resetAll();
+        } else if (typeof store.resetTopology === 'function') {
+            store.resetTopology();
+        } else {
+            useStore.setState({
+                nodes: [],
+                edges: [],
+            });
+            if (typeof store.validateTopology === 'function') {
+                store.validateTopology();
+            }
+        }
+        setSelectedNodeId(null);
+        setShowResetModal(false);
+    };
+
+    const getLaunchConfig = () => {
+        if (!selectedNode) {
+            return {
+                label: 'Launch WinBox',
+                action: openWinBox,
+                disabled: !isTopologyValid,
+            };
+        }
+
+        if (selectedNode.type === 'dlinkNode') {
+            return {
+                label: 'Launch D-Link Web GUI',
+                action: () => openDLinkConfig(selectedNode.id),
+                disabled: false,
+            };
+        }
+
+        if (selectedNode.type === 'laptopNode') {
+            return {
+                label: 'Launch Laptop Desktop',
+                action: () => openLaptopDesktop(selectedNode.id),
+                disabled: false,
+            };
+        }
+
+        return {
+            label: 'Launch WinBox',
+            action: openWinBox,
+            disabled: !isTopologyValid,
+        };
+    };
+
+    const launchConfig = getLaunchConfig();
+
+    return (
+        <div style={{
+            display: 'flex',
+            flexDirection: isMobile ? 'column' : 'row',
+            width: '100vw',
+            height: '100vh',
+            overflow: 'hidden',
+            backgroundColor: '#ffffff',
+            color: '#000000',
+            colorScheme: 'light'
+        }}>
+            <style>{`
+                .react-flow, .react-flow__pane, .react-flow__viewport {
+                    background-color: #ffffff !important;
+                    color: #000000 !important;
+                    color-scheme: light !important;
+                }
+                .react-flow__panel {
+                    color-scheme: light !important;
+                }
+            `}</style>
+
+            <div style={{
+                ...sidebarContainerStyle,
+                width: isMobile ? '100%' : '240px',
+                height: isMobile ? 'auto' : '100%',
+                maxHeight: isMobile ? '35vh' : 'none',
+                overflowY: 'auto',
+                borderRight: isMobile ? 'none' : '1px solid #e5e7eb',
+                borderBottom: isMobile ? '1px solid #e5e7eb' : 'none',
+                flexDirection: isMobile ? 'row' : 'column',
+                flexWrap: isMobile ? 'wrap' : 'nowrap',
+                justifyContent: isMobile ? 'center' : 'flex-start',
+            }}>
+                {!isMobile && (
+                    <>
+                        <h2 style={{ fontSize: '18px', fontWeight: 'bold', marginBottom: '5px', color: '#1f2937' }}>
+                            Topology Builder
+                        </h2>
+                        <p style={{ fontSize: '12px', color: '#6b7280', marginBottom: '10px' }}>
+                            Drag or tap components:
+                        </p>
+                    </>
+                )}
+
+                <div
+                    draggable
+                    onDragStart={(e) => onDragStart(e, 'ispNode', 'Cloud ISP')}
+                    onTouchStart={() => handleTouchStart('ispNode', 'Cloud ISP')}
+                    onTouchEnd={handleTouchEnd}
+                    onClick={() => isMobile && handleTapAdd('ispNode', 'Cloud ISP')}
+                    style={paletteItemStyle}
+                >
+                    <img src={ispImg} alt="ISP" style={sidebarIconStyle} />
+                    <span>Cloud ISP</span>
+                </div>
+
+                <div
+                    draggable
+                    onDragStart={(e) => onDragStart(e, 'dlinkNode', 'D-Link DIR-612')}
+                    onTouchStart={() => handleTouchStart('dlinkNode', 'D-Link DIR-612')}
+                    onTouchEnd={handleTouchEnd}
+                    onClick={() => isMobile && handleTapAdd('dlinkNode', 'D-Link DIR-612')}
+                    style={paletteItemStyle}
+                >
+                    <img src={apImg} alt="D-Link" style={sidebarIconStyle} />
+                    <span>D-Link DIR-612</span>
+                </div>
+
+                <div
+                    draggable
+                    onDragStart={(e) => onDragStart(e, 'routerNode', 'Router MikroTik')}
+                    onTouchStart={() => handleTouchStart('routerNode', 'Router MikroTik')}
+                    onTouchEnd={handleTouchEnd}
+                    onClick={() => isMobile && handleTapAdd('routerNode', 'Router MikroTik')}
+                    style={paletteItemStyle}
+                >
+                    <img src={routerImg} alt="Router" style={sidebarIconStyle} />
+                    <span>Router MikroTik</span>
+                </div>
+
+                <div
+                    draggable
+                    onDragStart={(e) => onDragStart(e, 'switchNode', 'Switch')}
+                    onTouchStart={() => handleTouchStart('switchNode', 'Switch')}
+                    onTouchEnd={handleTouchEnd}
+                    onClick={() => isMobile && handleTapAdd('switchNode', 'Switch')}
+                    style={paletteItemStyle}
+                >
+                    <img src={switchImg} alt="Switch" style={sidebarIconStyle} />
+                    <span>Switch</span>
+                </div>
+
+                <div
+                    draggable
+                    onDragStart={(e) => onDragStart(e, 'laptopNode', 'Laptop/PC')}
+                    onTouchStart={() => handleTouchStart('laptopNode', 'Laptop/PC')}
+                    onTouchEnd={handleTouchEnd}
+                    onClick={() => isMobile && handleTapAdd('laptopNode', 'Laptop/PC')}
+                    style={paletteItemStyle}
+                >
+                    <img src={laptopImg} alt="Laptop" style={sidebarIconStyle} />
+                    <span>Laptop/PC</span>
+                </div>
+
+                <div style={{
+                    ...statusCardStyle,
+                    marginTop: isMobile ? '0px' : 'auto',
+                    backgroundColor: isTopologyValid ? '#dcfce7' : '#fef2f2',
+                    padding: isMobile ? '6px 12px' : '12px'
+                }}>
+                    <div style={{ fontSize: '10px', color: '#4b5563', fontWeight: 'bold' }}>Status:</div>
+                    <div style={{ fontSize: '12px', fontWeight: 'bold', color: isTopologyValid ? '#15803d' : '#b91c1c' }}>
+                        {topologyStatus}
+                    </div>
+                    {selectedNode && (
+                        <div style={{ fontSize: '10px', color: '#1d4ed8', fontWeight: 'bold', marginTop: '4px' }}>
+                            Selected: {selectedNode.data?.label || selectedNode.type}
+                        </div>
+                    )}
+                </div>
+
+                <button
+                    disabled={launchConfig.disabled}
+                    onClick={launchConfig.action}
+                    style={{
+                        ...btnWinBoxStyle,
+                        backgroundColor: launchConfig.disabled ? '#9ca3af' : '#0284c7',
+                        cursor: launchConfig.disabled ? 'not-allowed' : 'pointer',
+                        padding: isMobile ? '8px 12px' : '12px',
+                        fontSize: isMobile ? '12px' : '14px',
+                        width: isMobile ? 'auto' : '100%'
+                    }}
+                >
+                    {launchConfig.label}
+                </button>
+
+                <button
+                    onClick={() => setShowResetModal(true)}
+                    style={{
+                        ...btnResetStyle,
+                        padding: isMobile ? '8px 12px' : '10px 12px',
+                        fontSize: isMobile ? '12px' : '13px',
+                        width: isMobile ? 'auto' : '100%',
+                        marginTop: isMobile ? '0px' : '6px'
+                    }}
+                >
+                    🔄 Reset Semua
+                </button>
+            </div>
+
+            <div
+                ref={reactFlowWrapper}
+                style={{
+                    flexGrow: 1,
+                    height: '100%',
+                    width: '100%',
+                    position: 'relative',
+                    backgroundColor: '#ffffff',
+                    color: '#000000',
+                    colorScheme: 'light'
+                }}
+            >
+                <DLinkContextMenu />
+
+                <ReactFlow
+                    nodes={nodes}
+                    edges={edges}
+                    nodeTypes={nodeTypes}
+                    onNodesChange={onNodesChange}
+                    onEdgesChange={onEdgesChange}
+                    onConnect={onConnect}
+                    onDrop={onDrop}
+                    onDragOver={onDragOver}
+                    onNodeClick={handleNodeClick}
+                    onPaneClick={handlePaneClick}
+                    onNodeContextMenu={handleNodeContextMenu}
+                    fitViewOptions={{ padding: 0.2 }}
+                    snapToGrid={true}
+                    snapGrid={[15, 15]}
+                    panOnScroll={true}
+                    zoomOnPinch={true}
+                    preventScrolling={false}
+                    connectOnClick={true}
+                    connectionRadius={35}
+                    style={{ backgroundColor: '#ffffff' }}
+                >
+                    <WirelessEngine />
+                    <Background color="#d1d5db" gap={16} />
+                    <Controls />
+                    <MiniMap style={{ display: isMobile ? 'none' : 'block' }} />
+                </ReactFlow>
+            </div>
+
+            {nodeToDelete && (
+                <div style={modalOverlayStyle}>
+                    <div style={modalBoxStyle}>
+                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>🗑️</div>
+                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '6px', color: '#111827' }}>
+                            Hapus Perangkat?
+                        </h3>
+                        <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '18px' }}>
+                            Apakah Anda yakin ingin menghapus <strong>{nodeToDelete.label}</strong> dari topologi?
+                        </p>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={() => setNodeToDelete(null)} style={btnCancelStyle}>
+                                Batal
+                            </button>
+                            <button onClick={handleDeleteNode} style={btnConfirmDeleteStyle}>
+                                Hapus
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showResetModal && (
+                <div style={modalOverlayStyle}>
+                    <div style={modalBoxStyle}>
+                        <div style={{ fontSize: '32px', marginBottom: '8px' }}>🔄</div>
+                        <h3 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '6px', color: '#111827' }}>
+                            Reset Semua Topologi?
+                        </h3>
+                        <p style={{ fontSize: '13px', color: '#4b5563', marginBottom: '18px' }}>
+                            Tindakan ini akan mengosongkan topologi.
+                        </p>
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={() => setShowResetModal(false)} style={btnCancelStyle}>
+                                Batal
+                            </button>
+                            <button onClick={handleConfirmReset} style={btnConfirmDeleteStyle}>
+                                Reset Sekarang
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <DLinkConfigurationDesktop />
+            <LaptopDesktop />
+        </div>
+    );
+};
+
+export const TopologyBuilder = () => {
+    return (
+        <ReactFlowProvider>
+            <TopologyCanvas />
+        </ReactFlowProvider>
+    );
+};
+
+const sidebarContainerStyle: React.CSSProperties = {
+    padding: '12px',
+    background: '#f9fafb',
+    display: 'flex',
+    gap: '8px',
+    zIndex: 10,
+    userSelect: 'none',
+    touchAction: 'manipulation'
+};
+
+const paletteItemStyle: React.CSSProperties = {
+    padding: '8px 12px',
+    background: '#ffffff',
+    color: '#000000',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    fontSize: '12px',
+    fontWeight: 600,
+    cursor: 'grab',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.05)',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    touchAction: 'none'
+};
+
+const sidebarIconStyle: React.CSSProperties = {
+    width: '24px',
+    height: '24px',
+    objectFit: 'contain'
+};
+
+const statusCardStyle: React.CSSProperties = {
+    borderRadius: '6px',
+    textAlign: 'center',
+    border: '1px solid #e5e7eb',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center'
+};
+
+const btnWinBoxStyle: React.CSSProperties = {
+    color: 'white',
+    fontWeight: 'bold',
+    borderRadius: '6px',
+    border: 'none',
+};
+
+const btnResetStyle: React.CSSProperties = {
+    color: '#dc2626',
+    backgroundColor: '#fef2f2',
+    border: '1px solid #fca5a5',
+    fontWeight: 'bold',
+    borderRadius: '6px',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s',
+};
+
+const modalOverlayStyle: React.CSSProperties = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 9999,
+    padding: '16px'
+};
+
+const modalBoxStyle: React.CSSProperties = {
+    backgroundColor: '#ffffff',
+    borderRadius: '12px',
+    padding: '20px',
+    width: '100%',
+    maxWidth: '320px',
+    boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1)',
+    textAlign: 'center',
+    color: '#000000'
+};
+
+const btnCancelStyle: React.CSSProperties = {
+    flex: 1,
+    padding: '10px',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    backgroundColor: '#f3f4f6',
+    color: '#374151',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer'
+};
+
+const btnConfirmDeleteStyle: React.CSSProperties = {
+    flex: 1,
+    padding: '10px',
+    border: 'none',
+    borderRadius: '6px',
+    backgroundColor: '#dc2626',
+    color: '#ffffff',
+    fontWeight: 600,
+    fontSize: '13px',
+    cursor: 'pointer'
+};
+</file>
+
+<file path="src/App.tsx">
+import { ReactFlowProvider } from 'reactflow';
+import { TopologyBuilder } from './components/TopologyBuilder';
+import { WinBox } from './components/WinBox';
+import { DesktopWinBox } from './components/DesktopWinBox';
+import { useStore } from './store/useStore';
+
+
+function App() {
+  const currentScreen = useStore(state => state.currentScreen);
+
+  return (
+    <ReactFlowProvider>
+      <div
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          opacity: currentScreen === 'topology' ? 1 : 0,
+          pointerEvents: currentScreen === 'topology' ? 'auto' : 'none',
+          transition: 'opacity 0.25s ease-in-out',
+          zIndex: currentScreen === 'topology' ? 10 : 0
+        }}
+      >
+        <TopologyBuilder />
+        <WinBox />
+      </div>
+
+      <div
+        style={{
+          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+          opacity: currentScreen === 'desktop' ? 1 : 0,
+          pointerEvents: currentScreen === 'desktop' ? 'auto' : 'none',
+          transition: 'opacity 0.25s ease-in-out',
+          zIndex: currentScreen === 'desktop' ? 10 : 0
+        }}
+      >
+        {currentScreen === 'desktop' && <DesktopWinBox />}
+      </div>
+
+      <style>{`
+        .neighbor-row:hover { background-color: #3399FF; color: white; }
+      `}</style>
+    </ReactFlowProvider>
+  );
+}
+
+export default App;
+</file>
+
+<file path="index.html">
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mikrotik-simulator</title>
+</head>
+
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/main.tsx"></script>
+</body>
+
+</html>
 </file>
 
 <file path="src/components/WinBoxFirewall.tsx">
@@ -6707,27 +6303,6 @@ export type RouterData = {
   password: string;
 };
 
-// --- FIREWALL NAT ENGINE TYPES ---
-export interface FirewallNatRule {
-  id: string;
-  chain: 'srcnat' | 'dstnat';
-  action: 'masquerade' | 'src-nat' | 'redirect' | 'dst-nat' | 'accept' | 'drop';
-  outInterface?: string;
-  inInterface?: string;
-  srcAddress?: string;
-  dstAddress?: string;
-  toAddresses?: string;
-  toPorts?: string;
-  comment?: string;
-  disabled: boolean;
-}
-
-export interface FirewallState {
-  nat: FirewallNatRule[];
-  filter: any[];
-  mangle: any[];
-}
-
 export type DesktopWindow = {
   id: string;
   title: string;
@@ -6802,18 +6377,16 @@ export interface SimulatorState {
   dhcpServers: DhcpServer[];
   dhcpLeases: DhcpLease[];
 
-  // --- FIREWALL ENGINE STATE & ACTIONS ---
-  firewallRules: FirewallState;
-  isNatConfigured: boolean;
-  isInternetConnected: boolean;
-  addFirewallNatRule: (rule: Omit<FirewallNatRule, 'id'>) => void;
-  toggleFirewallNatRule: (id: string) => void;
-  updateFirewallNatRule: (id: string, updates: Partial<FirewallNatRule>) => void;
-  removeFirewallNatRule: (id: string) => void;
+  // --- FIREWALL ENGINE TYPES ---
+  firewallRules?: any;
+  isNatConfigured?: boolean;
+  isInternetConnected?: boolean; // <-- Tambahan untuk status koneksi internet laptop
+  addFirewallNatRule?: (rule: any) => void;
+  removeFirewallNatRule?: (id: string) => void;
 
   // --- ENGINE LAPTOP DESKTOP SIMULATOR ---
   activeDesktopLaptopId: string | null;
-  activeLaptopId?: string | null;
+  activeLaptopId?: string | null; // Alias kompatibilitas
   laptopDesktopStates: Record<string, LaptopDesktopState>;
   mikrotikConfig?: any;
   dlinkConfig?: any;
@@ -6899,13 +6472,16 @@ export const calculateNetwork = (cidr: string): string => {
   }
 };
 
+// Utility Fetch Data ISP Asli Pengguna dengan Penyesuaian Kelas IP & Otomatisasi IPv4
 export const fetchRealISPConfig = async () => {
   try {
+    // 1. Ambil Alamat IPv4 Asli
     const ipRes = await fetch('https://api4.ipify.org?format=json');
     if (!ipRes.ok) throw new Error('Failed to fetch IPv4');
     const ipData = await ipRes.json();
-    const publicIp = ipData.ip;
+    const publicIp = ipData.ip; // Dijamin format IPv4 (e.g., 180.250.x.x atau 36.72.x.x)
 
+    // 2. Ambil Nama ISP
     let ispName = 'Real ISP';
     try {
       const infoRes = await fetch('https://ipapi.co/json/');
@@ -6914,9 +6490,10 @@ export const fetchRealISPConfig = async () => {
         ispName = infoData.org || infoData.asn;
       }
     } catch {
-      // Fallback
+      // Fallback jika API ISP terhalang
     }
 
+    // 3. Deteksi Kelas IP berdasarkan Oktet Pertama (Classful Network)
     const parts = publicIp.split('.').map(Number);
     const firstOctet = parts[0];
 
@@ -6924,12 +6501,15 @@ export const fetchRealISPConfig = async () => {
     let gateway = `${parts[0]}.${parts[1]}.${parts[2]}.1`;
 
     if (firstOctet >= 1 && firstOctet <= 127) {
+      // Kelas A
       prefix = '/8';
       gateway = `${parts[0]}.0.0.1`;
     } else if (firstOctet >= 128 && firstOctet <= 191) {
+      // Kelas B
       prefix = '/16';
       gateway = `${parts[0]}.${parts[1]}.0.1`;
     } else if (firstOctet >= 192 && firstOctet <= 223) {
+      // Kelas C
       prefix = '/24';
       gateway = `${parts[0]}.${parts[1]}.${parts[2]}.1`;
     }
@@ -6941,6 +6521,7 @@ export const fetchRealISPConfig = async () => {
       ispName: ispName
     };
   } catch (error) {
+    // Fallback default jika offline
     return {
       ip: '192.168.18.50/24',
       gateway: '192.168.18.1',
@@ -6948,59 +6529,6 @@ export const fetchRealISPConfig = async () => {
       ispName: 'Default ISP'
     };
   }
-};
-
-const checkActiveMasquerade = (natRules: FirewallNatRule[] = []): boolean => {
-  return natRules.some(
-    (rule) =>
-      !rule.disabled &&
-      rule.chain === 'srcnat' &&
-      (rule.action === 'masquerade' || rule.action === 'src-nat')
-  );
-};
-
-// --- HELPER UNTUK MENCARI PORT MIKROTIK YANG TERHUBUNG DENGAN CLIENT ---
-const findConnectedRouterInterface = (
-  startNodeId: string,
-  nodes: Node[],
-  edges: Edge[],
-  routerId: string
-): string | null => {
-  const visited = new Set<string>();
-  const queue: { nodeId: string; path: Edge[] }[] = [{ nodeId: startNodeId, path: [] }];
-  visited.add(startNodeId);
-
-  while (queue.length > 0) {
-    const { nodeId, path } = queue.shift()!;
-
-    if (nodeId === routerId) {
-      const routerEdge = path[path.length - 1];
-      if (!routerEdge) return null;
-      if (routerEdge.source === routerId) return routerEdge.sourceHandle || null;
-      if (routerEdge.target === routerId) return routerEdge.targetHandle || null;
-    }
-
-    for (const edge of edges) {
-      let neighborId: string | null = null;
-      if (edge.source === nodeId) neighborId = edge.target;
-      else if (edge.target === nodeId) neighborId = edge.source;
-
-      if (neighborId && !visited.has(neighborId)) {
-        const neighborNode = nodes.find((n) => n.id === neighborId);
-        if (neighborNode) {
-          if (
-            neighborId === routerId ||
-            neighborNode.type === 'switchNode' ||
-            neighborNode.type === 'dlinkNode'
-          ) {
-            visited.add(neighborId);
-            queue.push({ nodeId: neighborId, path: [...path, edge] });
-          }
-        }
-      }
-    }
-  }
-  return null;
 };
 
 const initialMAC = generateMAC();
@@ -7033,9 +6561,9 @@ export const useStore = create<SimulatorState>()(
 
       interfaces: [
         { id: 'if-1', name: 'ether1', type: 'ether', actualMtu: 1500, l2Mtu: 1598, macAddress: initialMAC, arp: 'enabled', rx: 0, tx: 0, disabled: false, comment: 'WAN Port', isLinkUp: false },
-        { id: 'if-2', name: 'ether2', type: 'ether', actualMtu: 1500, l2Mtu: 1598, macAddress: generateMAC(), arp: 'enabled', rx: 0, tx: 0, disabled: false, comment: 'LAN Port 1', isLinkUp: false },
-        { id: 'if-3', name: 'ether3', type: 'ether', actualMtu: 1500, l2Mtu: 1598, macAddress: generateMAC(), arp: 'enabled', rx: 0, tx: 0, disabled: false, comment: 'LAN Port 2', isLinkUp: false },
-        { id: 'if-4', name: 'ether4', type: 'ether', actualMtu: 1500, l2Mtu: 1598, macAddress: generateMAC(), arp: 'enabled', rx: 0, tx: 0, disabled: false, comment: 'LAN Port 3', isLinkUp: false },
+        { id: 'if-2', name: 'ether2', type: 'ether', actualMtu: 1500, l2Mtu: 1598, macAddress: generateMAC(), arp: 'enabled', rx: 0, tx: 0, disabled: false, comment: 'LAN Port', isLinkUp: false },
+        { id: 'if-3', name: 'ether3', type: 'ether', actualMtu: 1500, l2Mtu: 1598, macAddress: generateMAC(), arp: 'enabled', rx: 0, tx: 0, disabled: false, comment: '', isLinkUp: false },
+        { id: 'if-4', name: 'ether4', type: 'ether', actualMtu: 1500, l2Mtu: 1598, macAddress: generateMAC(), arp: 'enabled', rx: 0, tx: 0, disabled: false, comment: '', isLinkUp: false },
       ],
       ipAddresses: [],
       dhcpClients: [],
@@ -7044,80 +6572,31 @@ export const useStore = create<SimulatorState>()(
       dhcpServers: [],
       dhcpLeases: [],
 
+      // --- FIREWALL INITIAL STATE & ACTIONS ---
       firewallRules: { nat: [], filter: [], mangle: [] },
       isNatConfigured: false,
-      isInternetConnected: false,
-
-      addFirewallNatRule: (ruleData) => {
-        const newRule: FirewallNatRule = {
-          ...ruleData,
-          id: `nat-${Date.now()}`,
-          disabled: ruleData.disabled ?? false
-        };
-
-        set((state) => {
-          const updatedNat = [...(state.firewallRules?.nat || []), newRule];
-          const isNatValid = checkActiveMasquerade(updatedNat);
-
-          return {
-            firewallRules: {
-              ...state.firewallRules,
-              nat: updatedNat
-            },
-            isNatConfigured: isNatValid,
-            isInternetConnected: isNatValid && state.hasInternet
-          };
-        });
+      isInternetConnected: false, // <-- Initial state default untuk koneksi internet laptop
+      addFirewallNatRule: (rule) => {
+        set((state) => ({
+          firewallRules: {
+            ...state.firewallRules,
+            nat: [...(state.firewallRules?.nat || []), rule]
+          },
+          isNatConfigured: true,
+          isInternetConnected: true
+        }));
       },
-
-      toggleFirewallNatRule: (id) => {
-        set((state) => {
-          const updatedNat = (state.firewallRules?.nat || []).map((rule) =>
-            rule.id === id ? { ...rule, disabled: !rule.disabled } : rule
-          );
-          const isNatValid = checkActiveMasquerade(updatedNat);
-
-          return {
-            firewallRules: {
-              ...state.firewallRules,
-              nat: updatedNat
-            },
-            isNatConfigured: isNatValid,
-            isInternetConnected: isNatValid && state.hasInternet
-          };
-        });
-      },
-
-      updateFirewallNatRule: (id, updates) => {
-        set((state) => {
-          const updatedNat = (state.firewallRules?.nat || []).map((rule) =>
-            rule.id === id ? { ...rule, ...updates } : rule
-          );
-          const isNatValid = checkActiveMasquerade(updatedNat);
-
-          return {
-            firewallRules: {
-              ...state.firewallRules,
-              nat: updatedNat
-            },
-            isNatConfigured: isNatValid,
-            isInternetConnected: isNatValid && state.hasInternet
-          };
-        });
-      },
-
       removeFirewallNatRule: (id) => {
         set((state) => {
-          const updatedNat = (state.firewallRules?.nat || []).filter((r) => r.id !== id);
-          const isNatValid = checkActiveMasquerade(updatedNat);
-
+          const remainingNat = (state.firewallRules?.nat || []).filter((r: any) => r.id !== id);
+          const hasNatRules = remainingNat.length > 0;
           return {
             firewallRules: {
               ...state.firewallRules,
-              nat: updatedNat
+              nat: remainingNat
             },
-            isNatConfigured: isNatValid,
-            isInternetConnected: isNatValid && state.hasInternet
+            isNatConfigured: hasNatRules,
+            isInternetConnected: hasNatRules
           };
         });
       },
@@ -7146,14 +6625,12 @@ export const useStore = create<SimulatorState>()(
         const { nodes, edges, interfaces } = get();
         const isp = nodes.find((n) => n.type === 'ispNode');
         const router = nodes.find((n) => n.type === 'routerNode');
-        const laptops = nodes.filter((n) => n.type === 'laptopNode');
-        const dlinks = nodes.filter((n) => n.type === 'dlinkNode');
-        const switches = nodes.filter((n) => n.type === 'switchNode');
+        const laptop = nodes.find((n) => n.type === 'laptopNode');
+        const switchNode = nodes.find((n) => n.type === 'switchNode');
 
+        let isValid = false;
         let ether1Up = false;
         let ether2Up = false;
-        let ether3Up = false;
-        let ether4Up = false;
 
         if (router) {
           if (isp) {
@@ -7163,46 +6640,34 @@ export const useStore = create<SimulatorState>()(
             );
           }
 
-          const isHandleConnected = (handleName: string) => {
-            const clients = [...laptops, ...dlinks];
-
-            const directLan = clients.some(client =>
-              edges.some(e =>
-                (e.source === router.id && e.target === client.id && e.sourceHandle === handleName) ||
-                (e.target === router.id && e.source === client.id && e.targetHandle === handleName)
-              )
+          if (laptop) {
+            const directLan = edges.some(e =>
+              (e.source === router.id && e.target === laptop.id && e.sourceHandle === 'ether2') ||
+              (e.target === router.id && e.source === laptop.id && e.targetHandle === 'ether2')
             );
 
-            const switchLan = switches.some(sw => {
+            let switchLan = false;
+            if (switchNode) {
               const routerToSwitch = edges.some(e =>
-                (e.source === router.id && e.target === sw.id && e.sourceHandle === handleName) ||
-                (e.target === router.id && e.source === sw.id && e.targetHandle === handleName)
+                (e.source === router.id && e.target === switchNode.id && e.sourceHandle === 'ether2') ||
+                (e.target === router.id && e.source === switchNode.id && e.targetHandle === 'ether2')
               );
-              const switchToClient = clients.some(client =>
-                edges.some(e =>
-                  (e.source === sw.id && e.target === client.id) ||
-                  (e.target === sw.id && e.source === client.id)
-                )
+              const switchToLaptop = edges.some(e =>
+                (e.source === switchNode.id && e.target === laptop.id) ||
+                (e.target === switchNode.id && e.source === laptop.id)
               );
-              return routerToSwitch && switchToClient;
-            });
+              switchLan = routerToSwitch && switchToLaptop;
+            }
 
-            return directLan || switchLan;
-          };
+            ether2Up = directLan || switchLan;
+          }
 
-          ether2Up = isHandleConnected('ether2');
-          ether3Up = isHandleConnected('ether3');
-          ether4Up = isHandleConnected('ether4');
+          isValid = ether1Up && ether2Up;
         }
-
-        const hasValidLan = ether2Up || ether3Up || ether4Up;
-        const isValid = ether1Up && hasValidLan;
 
         const updatedInterfaces = interfaces.map(iface => {
           if (iface.id === 'if-1') return { ...iface, isLinkUp: ether1Up };
           if (iface.id === 'if-2') return { ...iface, isLinkUp: ether2Up };
-          if (iface.id === 'if-3') return { ...iface, isLinkUp: ether3Up };
-          if (iface.id === 'if-4') return { ...iface, isLinkUp: ether4Up };
           return { ...iface, isLinkUp: false };
         });
 
@@ -7220,7 +6685,7 @@ export const useStore = create<SimulatorState>()(
               const otherNode = get().nodes.find((n) => n.id === otherId);
               return (
                 otherNode &&
-                (otherNode.type === 'routerNode' || otherNode.type === 'switchNode' || otherNode.type === 'laptopNode')
+                (otherNode.type === 'routerNode' || otherNode.type === 'switchNode')
               );
             });
 
@@ -7246,7 +6711,7 @@ export const useStore = create<SimulatorState>()(
         if (isValid) {
           try {
             const realISP = await fetchRealISPConfig();
-            const cleanIp = realISP.ip.split('/')[0];
+            const cleanIp = realISP.ip.split('/')[0]; // Mengambil IPv4 murni (tanpa subnet mask /24)
 
             const updatedRouterData = {
               ...routerData,
@@ -7414,15 +6879,15 @@ export const useStore = create<SimulatorState>()(
 
         if (targetIface.isLinkUp && !targetIface.disabled) {
           (async () => {
+            // Simulasi animasi searching selama 1.2 detik
             await new Promise((resolve) => setTimeout(resolve, 1200));
 
+            // Ambil data ISP Asli Pengguna
             const realISP = await fetchRealISPConfig();
 
             const currentClients = get().dhcpClients;
             const targetClient = currentClients.find(d => d.id === clientId);
             if (!targetClient || targetClient.disabled) return;
-
-            const isNatValid = checkActiveMasquerade(get().firewallRules?.nat || []);
 
             set({
               dhcpClients: get().dhcpClients.map(d => d.id === clientId ? {
@@ -7433,10 +6898,10 @@ export const useStore = create<SimulatorState>()(
                 dns: realISP.dns,
                 expiresAfter: '09:59:58'
               } : d),
-              hasInternet: true,
-              isInternetConnected: isNatValid
+              hasInternet: true
             });
 
+            // Tambahkan IP dinamis hasil DHCP Client ke daftar IP Address Router
             get().addIPAddress({
               address: realISP.ip,
               interfaceName,
@@ -7502,78 +6967,42 @@ export const useStore = create<SimulatorState>()(
         get().assignDhcpToClients();
       },
 
-      // --- LOGIKA ALOKASI DHCP DENGAN PORT-MATCHING ---
       assignDhcpToClients: () => {
-        const { dhcpServers, ipAddresses, nodes, edges } = get();
+        const { dhcpServers, ipAddresses, nodes } = get();
 
-        const router = nodes.find((n) => n.type === 'routerNode');
-        if (!router) {
+        const activeServers = dhcpServers.filter((s) => s.status === 'running');
+        if (activeServers.length === 0) {
           set({ dhcpLeases: [] });
           return;
         }
 
-        const activeServers = dhcpServers.filter((s) => s.status === 'running');
         const newLeases: DhcpLease[] = [];
 
-        const clientNodes = nodes.filter(
-          (n) => n.type === 'laptopNode' || n.type === 'pcNode'
-        );
-
-        // Grouping client berdasarkan port MikroTik tempat ia tersambung
-        const interfaceClientMap: Record<string, Node[]> = {};
-
-        clientNodes.forEach((client) => {
-          const connectedIface = findConnectedRouterInterface(client.id, nodes, edges, router.id);
-          if (connectedIface) {
-            if (!interfaceClientMap[connectedIface]) {
-              interfaceClientMap[connectedIface] = [];
-            }
-            interfaceClientMap[connectedIface].push(client);
-          } else {
-            // Hapus konfigurasi IP jika client tidak terhubung ke port MikroTik manapun
-            client.data = {
-              ...client.data,
-              assignedIp: undefined,
-              subnetMask: undefined,
-              gateway: undefined,
-              dnsServer: undefined,
-            };
-          }
-        });
-
-        // Proses pembagian IP per interface
-        Object.entries(interfaceClientMap).forEach(([ifaceName, clientsOnIface]) => {
-          const server = activeServers.find((s) => s.interface === ifaceName);
+        activeServers.forEach((server) => {
           const currentIpObj = ipAddresses.find(
-            (ip) => ip.interfaceName === ifaceName && !ip.disabled
+            (ip) => ip.interfaceName === server.interface && !ip.disabled
           );
 
-          if (!server || !currentIpObj) {
-            clientsOnIface.forEach((c) => {
-              c.data = {
-                ...c.data,
-                assignedIp: undefined,
-                subnetMask: undefined,
-                gateway: undefined,
-                dnsServer: undefined,
-              };
-            });
-            return;
-          }
+          if (!currentIpObj) return;
 
           const calc = calculateDhcpDefaults(currentIpObj.address);
           if (!calc) return;
 
-          clientsOnIface.forEach((client, index) => {
-            const ipParts = calc.gateway.split('.');
-            const assignedIp = `${ipParts[0]}.${ipParts[1]}.${ipParts[2]}.${2 + index}`;
+          const clientNodes = nodes.filter(
+            (n) => n.type === 'laptopNode' || n.type === 'pcNode'
+          );
+
+          clientNodes.forEach((client, index) => {
+            const poolParts = calc.poolEnd.split('.');
+            const octetLast = parseInt(poolParts[3], 10);
+            const assignedIp = `${poolParts[0]}.${poolParts[1]}.${poolParts[2]}.${Math.max(2, octetLast - index)}`;
 
             newLeases.push({
               id: `lease-${client.id}`,
               address: assignedIp,
               macAddress: (client.data?.macAddress as string) || `4C:5E:0C:${10 + index}:A2:FF`,
               server: server.name,
-              hostname: (client.data?.label as string) || `Client-${index + 1}`,
+              hostname: (client.data?.label as string) || `Laptop-${index + 1}`,
               status: 'bound',
               expiresIn: server.leaseTime,
             });
@@ -7582,8 +7011,8 @@ export const useStore = create<SimulatorState>()(
               ...client.data,
               assignedIp,
               subnetMask: calc.subnetMask,
-              gateway: server.gateway || calc.gateway,
-              dnsServer: server.dnsServers || '8.8.8.8',
+              gateway: calc.gateway,
+              dnsServer: server.dnsServers,
             };
           });
         });
@@ -7658,13 +7087,13 @@ export const useStore = create<SimulatorState>()(
 
           return {
             activeDesktopLaptopId: id,
-            activeLaptopId: id,
+            activeLaptopId: id, // Sinkronisasi alias
             laptopDesktopStates: {
               ...currentStates,
               [id]: {
                 ...existingState,
                 isOpen: true,
-                activeWindow: null,
+                activeWindow: null, // Reset jendela yang terbuka agar langsung tampil desktop bersih
                 startMenuOpen: false
               }
             }
